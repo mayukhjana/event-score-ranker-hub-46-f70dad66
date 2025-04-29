@@ -8,6 +8,20 @@ export const generatePDF = async (event: Event): Promise<void> => {
   const doc = new jsPDF();
   const results = calculateStudentScores(event.students, event.scores);
   
+  // Add judge names to results
+  const resultsWithJudgeNames = results.map(result => {
+    return {
+      ...result,
+      judgeRanks: result.judgeRanks.map(judgeRank => {
+        const judge = event.judges.find(j => j.id === judgeRank.judgeId);
+        return {
+          ...judgeRank,
+          judgeName: judge ? judge.name : judgeRank.judgeId
+        };
+      })
+    };
+  });
+  
   // Add title
   doc.setFontSize(20);
   doc.text(`Event Results: ${event.name}`, 14, 22);
@@ -24,16 +38,46 @@ export const generatePDF = async (event: Event): Promise<void> => {
   const judgeNames = event.judges.map(judge => judge.name).join(", ");
   doc.text(`Judges: ${judgeNames}`, 14, 46);
   
-  // Create ranking table
-  const headers = [['Rank', 'Participant', 'Average Score', 'Total Score']];
-  const data = results
+  // Create ranking table with judge-specific ranks
+  const headers = [
+    [
+      'Final Rank', 
+      'Participant', 
+      ...event.judges.map(judge => `${judge.name} Score`),
+      ...event.judges.map(judge => `R(${judge.name})`),
+      'Sum of Ranks',
+      'Average Score'
+    ]
+  ];
+  
+  const data = resultsWithJudgeNames
     .sort((a, b) => a.rank - b.rank)
-    .map(result => [
-      result.rank.toString(),
-      result.student.name,
-      result.averageScore.toFixed(2),
-      result.totalScore.toFixed(2)
-    ]);
+    .map(result => {
+      const rowData = [
+        result.rank.toString(),
+        result.student.name,
+      ];
+      
+      // Add scores for each judge
+      event.judges.forEach(judge => {
+        const score = event.scores.find(
+          s => s.studentId === result.student.id && s.judgeId === judge.id
+        );
+        rowData.push(score ? score.value.toString() : '-');
+      });
+      
+      // Add ranks for each judge
+      event.judges.forEach(judge => {
+        const judgeRank = result.judgeRanks.find(jr => jr.judgeId === judge.id);
+        rowData.push(judgeRank ? judgeRank.rank.toFixed(1) : '-');
+      });
+      
+      // Add sum of ranks and average score
+      rowData.push(result.totalRank.toFixed(1));
+      rowData.push(result.averageScore.toFixed(2));
+      
+      return rowData;
+    });
   
   autoTable(doc, {
     head: headers,

@@ -17,6 +17,12 @@ import {
   TableRow
 } from "@/components/ui/table";
 
+interface JudgeRank {
+  judgeId: string;
+  judgeName: string;
+  rank: number;
+}
+
 interface StudentResult {
   student: {
     id: string;
@@ -24,6 +30,8 @@ interface StudentResult {
   };
   totalScore: number;
   averageScore: number;
+  judgeRanks: JudgeRank[];
+  totalRank: number;
   rank: number;
 }
 
@@ -47,8 +55,23 @@ const Results = () => {
       return;
     }
 
-    // Calculate results
-    const calculatedResults = calculateStudentScores(currentEvent.students, currentEvent.scores);
+    // Calculate results with judge ranks
+    let calculatedResults = calculateStudentScores(currentEvent.students, currentEvent.scores);
+    
+    // Add judge names to the results
+    calculatedResults = calculatedResults.map(result => {
+      return {
+        ...result,
+        judgeRanks: result.judgeRanks.map(judgeRank => {
+          const judge = currentEvent.judges.find(j => j.id === judgeRank.judgeId);
+          return {
+            ...judgeRank,
+            judgeName: judge ? judge.name : judgeRank.judgeId
+          };
+        })
+      };
+    });
+    
     setResults(calculatedResults);
   }, [currentEvent, navigate, toast]);
 
@@ -66,10 +89,20 @@ const Results = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="font-bold">Rank</TableHead>
+                  <TableHead className="font-bold">Final Rank</TableHead>
                   <TableHead className="font-bold">Participant</TableHead>
+                  {currentEvent.judges.map(judge => (
+                    <TableHead key={judge.id} className="font-bold text-center">
+                      {judge.name} Score
+                    </TableHead>
+                  ))}
+                  {currentEvent.judges.map(judge => (
+                    <TableHead key={`rank-${judge.id}`} className="font-bold text-center">
+                      R({judge.name})
+                    </TableHead>
+                  ))}
+                  <TableHead className="font-bold text-center">Sum of Ranks</TableHead>
                   <TableHead className="font-bold text-center">Average Score</TableHead>
-                  <TableHead className="font-bold text-center">Total Score</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -79,11 +112,36 @@ const Results = () => {
                     <TableRow key={result.student.id} className={result.rank === 1 ? "bg-blue-50" : ""}>
                       <TableCell className="font-medium">{result.rank}</TableCell>
                       <TableCell>{result.student.name}</TableCell>
-                      <TableCell className="text-center">
-                        {result.averageScore.toFixed(2)}
+                      
+                      {/* Score for each judge */}
+                      {currentEvent.judges.map(judge => {
+                        const score = currentEvent.scores.find(
+                          s => s.studentId === result.student.id && s.judgeId === judge.id
+                        );
+                        return (
+                          <TableCell key={`score-${judge.id}`} className="text-center">
+                            {score ? score.value : "-"}
+                          </TableCell>
+                        );
+                      })}
+                      
+                      {/* Rank given by each judge */}
+                      {currentEvent.judges.map(judge => {
+                        const judgeRank = result.judgeRanks.find(
+                          jr => jr.judgeId === judge.id
+                        );
+                        return (
+                          <TableCell key={`rank-${judge.id}`} className="text-center">
+                            {judgeRank ? judgeRank.rank.toFixed(1) : "-"}
+                          </TableCell>
+                        );
+                      })}
+                      
+                      <TableCell className="text-center font-medium">
+                        {result.totalRank.toFixed(1)}
                       </TableCell>
                       <TableCell className="text-center">
-                        {result.totalScore.toFixed(2)}
+                        {result.averageScore.toFixed(2)}
                       </TableCell>
                     </TableRow>
                   ))}
