@@ -16,8 +16,13 @@ export const generatePDF = async (event: Event): Promise<void> => {
   doc.setFontSize(12);
   doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 30);
 
-  // Add participant count and judge count
+  // Add participant and judge count with judge names
   doc.text(`Participants: ${event.students.length} | Judges: ${event.judges.length}`, 14, 38);
+  
+  // List judge names
+  doc.setFontSize(10);
+  const judgeNames = event.judges.map(judge => judge.name).join(", ");
+  doc.text(`Judges: ${judgeNames}`, 14, 46);
   
   // Create ranking table
   const headers = [['Rank', 'Participant', 'Average Score', 'Total Score']];
@@ -33,7 +38,7 @@ export const generatePDF = async (event: Event): Promise<void> => {
   autoTable(doc, {
     head: headers,
     body: data,
-    startY: 45,
+    startY: 54,
     headStyles: { 
       fillColor: [59, 130, 246],
       textColor: 255
