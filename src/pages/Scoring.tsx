@@ -1,19 +1,25 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { useEvent } from '@/context/EventContext';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
 
 const Scoring = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { currentEvent, updateScore } = useEvent();
-  const [activeStudentIndex, setActiveStudentIndex] = useState(0);
 
   useEffect(() => {
     // Redirect to setup if no event configuration exists
@@ -32,7 +38,6 @@ const Scoring = () => {
   if (!currentEvent) return null;
 
   const { students, judges, scores } = currentEvent;
-  const activeStudent = students[activeStudentIndex];
 
   // Helper to get the score for a specific student and judge
   const getScore = (studentId: string, judgeId: string): number => {
@@ -42,40 +47,19 @@ const Scoring = () => {
     return scoreEntry ? scoreEntry.value : 50; // Default to 50
   };
 
-  const handleScoreChange = (studentId: string, judgeId: string, value: number) => {
-    updateScore(currentEvent.id, studentId, judgeId, value);
-  };
-
-  const handleNext = () => {
-    if (activeStudentIndex < students.length - 1) {
-      setActiveStudentIndex(activeStudentIndex + 1);
-      window.scrollTo(0, 0);
-    } else {
-      navigate('/results');
+  const handleScoreChange = (studentId: string, judgeId: string, valueStr: string) => {
+    const value = parseFloat(valueStr);
+    if (!isNaN(value) && value >= 0 && value <= 100) {
+      updateScore(currentEvent.id, studentId, judgeId, value);
     }
   };
 
-  const handlePrevious = () => {
-    if (activeStudentIndex > 0) {
-      setActiveStudentIndex(activeStudentIndex - 1);
-      window.scrollTo(0, 0);
-    }
-  };
-
-  const handleJumpToStudent = (index: number) => {
-    setActiveStudentIndex(index);
-    window.scrollTo(0, 0);
-  };
-
-  const isScoreComplete = (studentId: string): boolean => {
-    return judges.every((judge) =>
-      scores.some((s) => s.studentId === studentId && s.judgeId === judge.id)
-    );
-  };
-
-  const progress = students.filter((student) => 
-    isScoreComplete(student.id)
-  ).length / students.length;
+  // Calculate completion percentage
+  const totalScoresNeeded = students.length * judges.length;
+  const scoresFilled = scores.length;
+  const completionPercentage = totalScoresNeeded > 0 
+    ? Math.round((scoresFilled / totalScoresNeeded) * 100) 
+    : 0;
 
   return (
     <Layout title="Scoring">
@@ -83,82 +67,72 @@ const Scoring = () => {
         {/* Progress indicator */}
         <div className="bg-gray-100 rounded-lg p-4 mb-6">
           <div className="text-sm text-gray-500 mb-2">
-            Overall Progress: {Math.round(progress * 100)}% complete
+            Overall Progress: {completionPercentage}% complete
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2.5">
             <div
               className="bg-blue-600 h-2.5 rounded-full"
-              style={{ width: `${progress * 100}%` }}
+              style={{ width: `${completionPercentage}%` }}
             ></div>
           </div>
         </div>
 
-        {activeStudent && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl flex justify-between items-center">
-                <span>Scoring: {activeStudent.name}</span>
-                <span className="text-sm text-gray-500">
-                  Participant {activeStudentIndex + 1} of {students.length}
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {judges.map((judge) => (
-                  <div key={judge.id} className="space-y-2">
-                    <div className="flex justify-between">
-                      <Label>Judge: {judge.name}</Label>
-                      <span className="font-bold text-lg">
-                        {getScore(activeStudent.id, judge.id)}
-                      </span>
-                    </div>
-                    <Slider
-                      min={0}
-                      max={100}
-                      step={1}
-                      value={[getScore(activeStudent.id, judge.id)]}
-                      onValueChange={(value) =>
-                        handleScoreChange(activeStudent.id, judge.id, value[0])
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl">
+              Scoring Sheet: {currentEvent.name}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="sticky left-0 bg-white z-10">Participants</TableHead>
+                    {judges.map(judge => (
+                      <TableHead key={judge.id} className="text-center">
+                        {judge.name}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {students.map(student => (
+                    <TableRow key={student.id} className="hover:bg-gray-50">
+                      <TableCell className="sticky left-0 bg-white z-10 font-medium">
+                        {student.name}
+                      </TableCell>
+                      {judges.map(judge => (
+                        <TableCell key={judge.id} className="p-1 text-center">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={getScore(student.id, judge.id)}
+                            onChange={(e) => handleScoreChange(student.id, judge.id, e.target.value)}
+                            className="h-8 w-16 text-center mx-auto"
+                          />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Navigation buttons */}
-        <div className="flex justify-between">
+        <div className="flex justify-end space-x-4">
           <Button
             variant="outline"
-            onClick={handlePrevious}
-            disabled={activeStudentIndex === 0}
+            onClick={() => navigate('/setup')}
           >
-            Previous
+            Back to Setup
           </Button>
-
-          <div className="flex-1 mx-4">
-            <div className="flex flex-wrap justify-center gap-2">
-              {students.map((student, index) => (
-                <Button
-                  key={student.id}
-                  variant={activeStudentIndex === index ? "default" : "outline"}
-                  size="sm"
-                  className={`${
-                    isScoreComplete(student.id) ? "bg-green-100" : ""
-                  }`}
-                  onClick={() => handleJumpToStudent(index)}
-                >
-                  {index + 1}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <Button onClick={handleNext}>
-            {activeStudentIndex < students.length - 1 ? "Next" : "View Results"}
+          <Button onClick={() => navigate('/results')}>
+            View Results
           </Button>
         </div>
       </div>

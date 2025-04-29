@@ -43,39 +43,37 @@ export const generatePDF = async (event: Event): Promise<void> => {
     theme: 'grid'
   });
 
-  // Add individual scores table (scores per judge)
-  if (event.judges.length > 0) {
-    doc.addPage();
-    doc.setFontSize(16);
-    doc.text("Individual Scores by Judge", 14, 20);
+  // Add scoring table (Excel-like format)
+  doc.addPage();
+  doc.setFontSize(16);
+  doc.text("Scoring Sheet", 14, 20);
+  
+  const scoreHeaders = [['Participant', ...event.judges.map(j => j.name)]];
+  
+  const scoreData = event.students.map(student => {
+    const row = [student.name];
     
-    const judgeHeaders = [['Participant', ...event.judges.map(j => j.name)]];
-    
-    const scoreData = event.students.map(student => {
-      const row = [student.name];
+    event.judges.forEach(judge => {
+      const score = event.scores.find(
+        s => s.studentId === student.id && s.judgeId === judge.id
+      );
       
-      event.judges.forEach(judge => {
-        const score = event.scores.find(
-          s => s.studentId === student.id && s.judgeId === judge.id
-        );
-        
-        row.push(score ? score.value.toString() : '-');
-      });
-      
-      return row;
+      row.push(score ? score.value.toString() : '-');
     });
     
-    autoTable(doc, {
-      head: judgeHeaders,
-      body: scoreData,
-      startY: 30,
-      headStyles: { 
-        fillColor: [59, 130, 246],
-        textColor: 255
-      },
-      theme: 'grid'
-    });
-  }
+    return row;
+  });
+  
+  autoTable(doc, {
+    head: scoreHeaders,
+    body: scoreData,
+    startY: 30,
+    headStyles: { 
+      fillColor: [59, 130, 246],
+      textColor: 255
+    },
+    theme: 'grid'
+  });
 
   // Save PDF
   doc.save(`${event.name.replace(/\s+/g, '_')}_results.pdf`);

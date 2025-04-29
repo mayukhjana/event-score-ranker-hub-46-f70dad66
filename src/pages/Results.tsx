@@ -8,7 +8,14 @@ import { useToast } from '@/components/ui/use-toast';
 import { useEvent } from '@/context/EventContext';
 import { calculateStudentScores } from '@/utils/scoreCalculations';
 import { generatePDF } from '@/utils/pdfGenerator';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
 
 interface StudentResult {
   student: {
@@ -47,12 +54,6 @@ const Results = () => {
 
   if (!currentEvent) return null;
 
-  // Format data for the chart
-  const chartData = results.map(result => ({
-    name: result.student.name,
-    score: result.averageScore
-  }));
-
   return (
     <Layout title="Results">
       <div className="space-y-6">
@@ -61,54 +62,33 @@ const Results = () => {
             Event: {currentEvent.name}
           </h3>
           
-          <div className="mb-8">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart
-                data={chartData}
-                margin={{
-                  top: 5,
-                  right: 30,
-                  left: 20,
-                  bottom: 5,
-                }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis domain={[0, 100]} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="score" name="Average Score" fill="#3b82f6" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-muted/50">
-                  <th className="text-left p-2 border">Rank</th>
-                  <th className="text-left p-2 border">Participant</th>
-                  <th className="text-center p-2 border">Average Score</th>
-                  <th className="text-center p-2 border">Total Score</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="font-bold">Rank</TableHead>
+                  <TableHead className="font-bold">Participant</TableHead>
+                  <TableHead className="font-bold text-center">Average Score</TableHead>
+                  <TableHead className="font-bold text-center">Total Score</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {results
                   .sort((a, b) => a.rank - b.rank)
                   .map((result) => (
-                    <tr key={result.student.id} className={result.rank === 1 ? "bg-blue-50" : ""}>
-                      <td className="p-2 border font-medium">{result.rank}</td>
-                      <td className="p-2 border">{result.student.name}</td>
-                      <td className="p-2 border text-center">
+                    <TableRow key={result.student.id} className={result.rank === 1 ? "bg-blue-50" : ""}>
+                      <TableCell className="font-medium">{result.rank}</TableCell>
+                      <TableCell>{result.student.name}</TableCell>
+                      <TableCell className="text-center">
                         {result.averageScore.toFixed(2)}
-                      </td>
-                      <td className="p-2 border text-center">
+                      </TableCell>
+                      <TableCell className="text-center">
                         {result.totalScore.toFixed(2)}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </Card>
 
