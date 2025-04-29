@@ -1,22 +1,25 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/components/ui/use-toast';
 import { useEvent } from '@/context/EventContext';
 
 const Scoring = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { eventData, updateScore } = useEvent();
-  const { students, judges, scores } = eventData;
+  const { currentEvent, updateScore } = useEvent();
+  const [activeStudentIndex, setActiveStudentIndex] = useState(0);
 
   useEffect(() => {
     // Redirect to setup if no event configuration exists
-    if (!eventData.eventName || students.length === 0 || judges.length === 0) {
+    if (!currentEvent || !currentEvent.name || 
+        currentEvent.students.length === 0 || 
+        currentEvent.judges.length === 0) {
       toast({
         title: "Event not configured",
         description: "Please set up your event first",
@@ -24,89 +27,138 @@ const Scoring = () => {
       });
       navigate('/setup');
     }
-  }, [eventData, navigate, toast]);
+  }, [currentEvent, navigate, toast]);
 
-  const handleScoreChange = (studentId: string, judgeId: string, value: string) => {
-    const numValue = parseFloat(value);
-    
-    // Validate score (0-100 range)
-    if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
-      updateScore(studentId, judgeId, numValue);
-    }
-  };
+  if (!currentEvent) return null;
 
-  const getScoreValue = (studentId: string, judgeId: string): string => {
-    const score = scores.find(
-      s => s.studentId === studentId && s.judgeId === judgeId
+  const { students, judges, scores } = currentEvent;
+  const activeStudent = students[activeStudentIndex];
+
+  // Helper to get the score for a specific student and judge
+  const getScore = (studentId: string, judgeId: string): number => {
+    const scoreEntry = scores.find(
+      (s) => s.studentId === studentId && s.judgeId === judgeId
     );
-    return score ? score.value.toString() : '';
+    return scoreEntry ? scoreEntry.value : 50; // Default to 50
   };
 
-  const handleViewResults = () => {
-    // Count expected scores (students × judges)
-    const expectedScores = students.length * judges.length;
-    const actualScores = scores.length;
-    
-    if (actualScores < expectedScores) {
-      const missingScores = expectedScores - actualScores;
-      toast({
-        title: "Missing scores",
-        description: `There are ${missingScores} scores missing. Continue anyway?`,
-        action: (
-          <Button onClick={() => navigate('/results')}>Continue</Button>
-        ),
-      });
+  const handleScoreChange = (studentId: string, judgeId: string, value: number) => {
+    updateScore(currentEvent.id, studentId, judgeId, value);
+  };
+
+  const handleNext = () => {
+    if (activeStudentIndex < students.length - 1) {
+      setActiveStudentIndex(activeStudentIndex + 1);
+      window.scrollTo(0, 0);
     } else {
       navigate('/results');
     }
   };
 
+  const handlePrevious = () => {
+    if (activeStudentIndex > 0) {
+      setActiveStudentIndex(activeStudentIndex - 1);
+      window.scrollTo(0, 0);
+    }
+  };
+
+  const handleJumpToStudent = (index: number) => {
+    setActiveStudentIndex(index);
+    window.scrollTo(0, 0);
+  };
+
+  const isScoreComplete = (studentId: string): boolean => {
+    return judges.every((judge) =>
+      scores.some((s) => s.studentId === studentId && s.judgeId === judge.id)
+    );
+  };
+
+  const progress = students.filter((student) => 
+    isScoreComplete(student.id)
+  ).length / students.length;
+
   return (
-    <Layout title="Score Entry">
+    <Layout title="Scoring">
       <div className="space-y-6">
-        <Card>
-          <div className="p-6 overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-muted/50">
-                  <th className="text-left p-2 border">Participant</th>
-                  {judges.map(judge => (
-                    <th key={judge.id} className="p-2 border text-center">
-                      {judge.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {students.map(student => (
-                  <tr key={student.id}>
-                    <td className="p-2 border font-medium">{student.name}</td>
-                    {judges.map(judge => (
-                      <td key={judge.id} className="p-2 border">
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.1"
-                          placeholder="Score"
-                          value={getScoreValue(student.id, judge.id)}
-                          onChange={(e) => 
-                            handleScoreChange(student.id, judge.id, e.target.value)
-                          }
-                          className="text-center"
-                        />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* Progress indicator */}
+        <div className="bg-gray-100 rounded-lg p-4 mb-6">
+          <div className="text-sm text-gray-500 mb-2">
+            Overall Progress: {Math.round(progress * 100)}% complete
           </div>
-        </Card>
-        
-        <div className="flex justify-end space-x-4">
-          <Button onClick={handleViewResults}>
-            View Results
+          <div className="w-full bg-gray-200 rounded-full h-2.5">
+            <div
+              className="bg-blue-600 h-2.5 rounded-full"
+              style={{ width: `${progress * 100}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {activeStudent && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl flex justify-between items-center">
+                <span>Scoring: {activeStudent.name}</span>
+                <span className="text-sm text-gray-500">
+                  Participant {activeStudentIndex + 1} of {students.length}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {judges.map((judge) => (
+                  <div key={judge.id} className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label>Judge: {judge.name}</Label>
+                      <span className="font-bold text-lg">
+                        {getScore(activeStudent.id, judge.id)}
+                      </span>
+                    </div>
+                    <Slider
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={[getScore(activeStudent.id, judge.id)]}
+                      onValueChange={(value) =>
+                        handleScoreChange(activeStudent.id, judge.id, value[0])
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Navigation buttons */}
+        <div className="flex justify-between">
+          <Button
+            variant="outline"
+            onClick={handlePrevious}
+            disabled={activeStudentIndex === 0}
+          >
+            Previous
+          </Button>
+
+          <div className="flex-1 mx-4">
+            <div className="flex flex-wrap justify-center gap-2">
+              {students.map((student, index) => (
+                <Button
+                  key={student.id}
+                  variant={activeStudentIndex === index ? "default" : "outline"}
+                  size="sm"
+                  className={`${
+                    isScoreComplete(student.id) ? "bg-green-100" : ""
+                  }`}
+                  onClick={() => handleJumpToStudent(index)}
+                >
+                  {index + 1}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <Button onClick={handleNext}>
+            {activeStudentIndex < students.length - 1 ? "Next" : "View Results"}
           </Button>
         </div>
       </div>

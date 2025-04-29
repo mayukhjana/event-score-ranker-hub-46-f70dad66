@@ -15,9 +15,16 @@ export interface Score {
   value: number;
 }
 
-export interface EventData {
-  eventName: string;
+export interface Event {
+  id: string;
+  name: string;
   students: Student[];
   judges: Judge[];
   scores: Score[];
+  createdAt: string;
+}
+
+export interface EventsState {
+  events: Event[];
+  currentEventId: string | null;
 }

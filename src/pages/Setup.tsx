@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
 import Layout from '@/components/Layout';
@@ -15,19 +15,38 @@ import { Student, Judge } from '@/types';
 const Setup = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { eventData, setEventName, setStudents, setJudges } = useEvent();
+  const { 
+    currentEvent, 
+    createEvent,
+    setEventName, 
+    setStudents, 
+    setJudges 
+  } = useEvent();
   
-  const [localEventName, setLocalEventName] = useState(eventData.eventName);
-  const [localStudents, setLocalStudents] = useState<Student[]>(
-    eventData.students.length > 0 
-      ? eventData.students 
-      : [{ id: uuidv4(), name: '' }]
-  );
-  const [localJudges, setLocalJudges] = useState<Judge[]>(
-    eventData.judges.length > 0 
-      ? eventData.judges 
-      : [{ id: uuidv4(), name: '' }]
-  );
+  const [localEventName, setLocalEventName] = useState("");
+  const [localStudents, setLocalStudents] = useState<Student[]>([
+    { id: uuidv4(), name: '' }
+  ]);
+  const [localJudges, setLocalJudges] = useState<Judge[]>([
+    { id: uuidv4(), name: '' }
+  ]);
+
+  // Load current event data when available
+  useEffect(() => {
+    if (currentEvent) {
+      setLocalEventName(currentEvent.name);
+      setLocalStudents(
+        currentEvent.students.length > 0 
+        ? currentEvent.students 
+        : [{ id: uuidv4(), name: '' }]
+      );
+      setLocalJudges(
+        currentEvent.judges.length > 0 
+        ? currentEvent.judges 
+        : [{ id: uuidv4(), name: '' }]
+      );
+    }
+  }, [currentEvent]);
 
   const addStudent = () => {
     setLocalStudents([...localStudents, { id: uuidv4(), name: '' }]);
@@ -113,9 +132,17 @@ const Setup = () => {
     }
 
     // Save data to context
-    setEventName(localEventName);
-    setStudents(localStudents);
-    setJudges(localJudges);
+    if (currentEvent) {
+      // Update existing event
+      setEventName(currentEvent.id, localEventName);
+      setStudents(currentEvent.id, localStudents);
+      setJudges(currentEvent.id, localJudges);
+    } else {
+      // Create new event if none exists
+      const id = createEvent(localEventName);
+      setStudents(id, localStudents);
+      setJudges(id, localJudges);
+    }
     
     toast({
       title: "Event setup complete",
@@ -232,6 +259,9 @@ const Setup = () => {
         </Card>
 
         <CardFooter className="flex justify-end space-x-4 pt-6">
+          <Button type="button" variant="outline" onClick={() => navigate('/')}>
+            Cancel
+          </Button>
           <Button type="submit">
             Save and Continue
           </Button>

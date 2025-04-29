@@ -1,14 +1,11 @@
 
-import { Student } from "../types";
+import { Student, Score } from '@/types';
 
-interface Score {
-  studentId: string;
-  judgeId: string;
-  value: number;
-}
-
-interface StudentScore {
-  student: Student;
+interface StudentResult {
+  student: {
+    id: string;
+    name: string;
+  };
   totalScore: number;
   averageScore: number;
   rank: number;
@@ -17,47 +14,40 @@ interface StudentScore {
 export const calculateStudentScores = (
   students: Student[],
   scores: Score[]
-): StudentScore[] => {
-  // Calculate total and average score for each student
-  const studentScores = students.map((student) => {
-    const studentScores = scores.filter((score) => score.studentId === student.id);
+): StudentResult[] => {
+  // Calculate total and average scores for each student
+  const results = students.map(student => {
+    const studentScores = scores.filter(score => score.studentId === student.id);
     const totalScore = studentScores.reduce((sum, score) => sum + score.value, 0);
     const averageScore = studentScores.length > 0 
       ? totalScore / studentScores.length 
       : 0;
-      
+    
     return {
-      student,
+      student: {
+        id: student.id,
+        name: student.name,
+      },
       totalScore,
       averageScore,
-      rank: 0, // Will be filled in later
+      rank: 0, // Placeholder, will be set below
     };
   });
-
-  // Sort by average score in descending order
-  const sortedScores = [...studentScores].sort((a, b) => b.averageScore - a.averageScore);
   
-  // Assign ranks (students with the same score get the same rank)
+  // Sort by average score (highest first) and assign ranks
+  const sortedResults = [...results].sort((a, b) => b.averageScore - a.averageScore);
+  
+  // Assign ranks (handling ties)
   let currentRank = 1;
-  sortedScores[0].rank = currentRank;
+  let previousScore = null;
   
-  for (let i = 1; i < sortedScores.length; i++) {
-    if (sortedScores[i].averageScore < sortedScores[i - 1].averageScore) {
-      currentRank = i + 1;
+  sortedResults.forEach((result, index) => {
+    if (previousScore !== null && result.averageScore < previousScore) {
+      currentRank = index + 1;
     }
-    sortedScores[i].rank = currentRank;
-  }
-
-  return sortedScores;
-};
-
-export const getStudentScore = (
-  studentId: string,
-  judgeId: string,
-  scores: Score[]
-): number | null => {
-  const score = scores.find(
-    (s) => s.studentId === studentId && s.judgeId === judgeId
-  );
-  return score ? score.value : null;
+    result.rank = currentRank;
+    previousScore = result.averageScore;
+  });
+  
+  return results;
 };

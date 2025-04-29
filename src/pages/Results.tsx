@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { useEvent } from '@/context/EventContext';
 import { calculateStudentScores } from '@/utils/scoreCalculations';
+import { generatePDF } from '@/utils/pdfGenerator';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface StudentResult {
@@ -22,13 +23,14 @@ interface StudentResult {
 const Results = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { eventData } = useEvent();
-  const { students, judges, scores } = eventData;
+  const { currentEvent } = useEvent();
   const [results, setResults] = useState<StudentResult[]>([]);
 
   useEffect(() => {
     // Redirect to setup if no event configuration exists
-    if (!eventData.eventName || students.length === 0 || judges.length === 0) {
+    if (!currentEvent || !currentEvent.name || 
+        currentEvent.students.length === 0 || 
+        currentEvent.judges.length === 0) {
       toast({
         title: "Event not configured",
         description: "Please set up your event first",
@@ -39,9 +41,11 @@ const Results = () => {
     }
 
     // Calculate results
-    const calculatedResults = calculateStudentScores(students, scores);
+    const calculatedResults = calculateStudentScores(currentEvent.students, currentEvent.scores);
     setResults(calculatedResults);
-  }, [eventData, navigate, toast, students, judges, scores]);
+  }, [currentEvent, navigate, toast]);
+
+  if (!currentEvent) return null;
 
   // Format data for the chart
   const chartData = results.map(result => ({
@@ -54,7 +58,7 @@ const Results = () => {
       <div className="space-y-6">
         <Card className="p-6">
           <h3 className="text-lg font-medium mb-4">
-            Event: {eventData.eventName}
+            Event: {currentEvent.name}
           </h3>
           
           <div className="mb-8">
@@ -112,31 +116,24 @@ const Results = () => {
           <Button variant="outline" onClick={() => navigate('/scoring')}>
             Back to Scoring
           </Button>
-          <Button onClick={() => {
-            // Generate and download results as CSV
-            const headers = ["Rank", "Participant", "Average Score", "Total Score"];
-            const rows = results
-              .sort((a, b) => a.rank - b.rank)
-              .map(r => [
-                r.rank,
-                r.student.name,
-                r.averageScore.toFixed(2),
-                r.totalScore.toFixed(2)
-              ]);
-            
-            const csvContent = [
-              headers.join(','),
-              ...rows.map(r => r.join(','))
-            ].join('\n');
-            
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.setAttribute('href', url);
-            link.setAttribute('download', `${eventData.eventName.replace(/\s+/g, '_')}_results.csv`);
-            link.click();
+          <Button onClick={async () => {
+            if (!currentEvent) return;
+            try {
+              await generatePDF(currentEvent);
+              toast({
+                title: "PDF Generated",
+                description: "Results have been exported to PDF"
+              });
+            } catch (error) {
+              toast({
+                title: "Error generating PDF",
+                description: "An error occurred while generating the PDF",
+                variant: "destructive"
+              });
+              console.error(error);
+            }
           }}>
-            Export Results
+            Generate PDF Report
           </Button>
         </div>
       </div>
