@@ -43,10 +43,10 @@ export const generatePDF = async (event: Event): Promise<void> => {
     [
       'Final Rank', 
       'Participant', 
-      ...event.judges.map(judge => `${judge.name} Score`),
+      ...event.judges.map(judge => `${judge.name}`),
       ...event.judges.map(judge => `R(${judge.name})`),
       'Sum of Ranks',
-      'Average Score'
+      'Final Rank'
     ]
   ];
   
@@ -72,9 +72,9 @@ export const generatePDF = async (event: Event): Promise<void> => {
         rowData.push(judgeRank ? judgeRank.rank.toFixed(1) : '-');
       });
       
-      // Add sum of ranks and average score
+      // Add sum of ranks and final rank
       rowData.push(result.totalRank.toFixed(1));
-      rowData.push(result.averageScore.toFixed(2));
+      rowData.push(result.rank.toFixed(1));
       
       return rowData;
     });

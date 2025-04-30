@@ -93,7 +93,7 @@ const Results = () => {
                   <TableHead className="font-bold">Participant</TableHead>
                   {currentEvent.judges.map(judge => (
                     <TableHead key={judge.id} className="font-bold text-center">
-                      {judge.name} Score
+                      {judge.name}
                     </TableHead>
                   ))}
                   {currentEvent.judges.map(judge => (
@@ -101,8 +101,8 @@ const Results = () => {
                       R({judge.name})
                     </TableHead>
                   ))}
-                  <TableHead className="font-bold text-center">Sum of Ranks</TableHead>
-                  <TableHead className="font-bold text-center">Average Score</TableHead>
+                  <TableHead className="font-bold text-center">R(P)+R(Q)</TableHead>
+                  <TableHead className="font-bold text-center">Final Rank</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -110,7 +110,7 @@ const Results = () => {
                   .sort((a, b) => a.rank - b.rank)
                   .map((result) => (
                     <TableRow key={result.student.id} className={result.rank === 1 ? "bg-blue-50" : ""}>
-                      <TableCell className="font-medium">{result.rank}</TableCell>
+                      <TableCell className="font-medium">{result.rank.toFixed(1)}</TableCell>
                       <TableCell>{result.student.name}</TableCell>
                       
                       {/* Score for each judge */}
@@ -140,8 +140,8 @@ const Results = () => {
                       <TableCell className="text-center font-medium">
                         {result.totalRank.toFixed(1)}
                       </TableCell>
-                      <TableCell className="text-center">
-                        {result.averageScore.toFixed(2)}
+                      <TableCell className="text-center font-medium">
+                        {result.rank.toFixed(1)}
                       </TableCell>
                     </TableRow>
                   ))}

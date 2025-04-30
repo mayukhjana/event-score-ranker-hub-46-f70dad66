@@ -26,19 +26,7 @@ export const calculateStudentScores = (
   // First, organize scores by judge for ranking purposes
   const judges = [...new Set(scores.map(score => score.judgeId))];
   
-  // Calculate judge names map for easier lookup
-  const judgeNamesMap: {[key: string]: string} = {};
-  const uniqueJudges = Array.from(
-    scores.reduce((map, score) => {
-      map.set(score.judgeId, score.judgeId);
-      return map;
-    }, new Map())
-  ).map(judgeId => {
-    // This is a placeholder - the actual judge name would come from event.judges
-    return judgeId;
-  });
-  
-  // Calculate scores and ranks per judge
+  // Calculate scores per judge
   const judgeScores: { [judgeId: string]: { [studentId: string]: number } } = {};
   
   // Initialize judge scores object
@@ -68,36 +56,34 @@ export const calculateStudentScores = (
     // Sort by score (descending)
     scoreArray.sort((a, b) => b.score - a.score);
     
-    // Assign ranks (handling ties)
-    let currentRank = 1;
-    let previousScore = null;
-    let tiedStudents = 0;
-    let rankSum = 0;
-    
     judgeRanks[judgeId] = {};
     
-    // Process each student for this judge
-    for (let i = 0; i < scoreArray.length; i++) {
-      const { studentId, score } = scoreArray[i];
-      
-      if (previousScore !== null && score < previousScore) {
-        // New rank
-        currentRank = i + 1;
-        tiedStudents = 0;
-        rankSum = currentRank;
-      } else if (previousScore !== null && score === previousScore) {
-        // Tied with previous student(s)
-        tiedStudents++;
-        rankSum += i + 1;
+    // Group by scores to handle ties properly
+    const scoreGroups: { [score: number]: string[] } = {};
+    scoreArray.forEach(item => {
+      if (!scoreGroups[item.score]) {
+        scoreGroups[item.score] = [];
       }
-      
-      // Assign rank (for ties, use average rank)
-      judgeRanks[judgeId][studentId] = tiedStudents > 0 
-        ? rankSum / (tiedStudents + 1) 
-        : currentRank;
-      
-      previousScore = score;
-    }
+      scoreGroups[item.score].push(item.studentId);
+    });
+    
+    // Assign ranks with proper tie handling
+    let currentRank = 1;
+    
+    Object.entries(scoreGroups)
+      .sort(([scoreA], [scoreB]) => Number(scoreB) - Number(scoreA))
+      .forEach(([_, studentIds]) => {
+        // For tied students, calculate average rank
+        const tiedRank = (currentRank + (currentRank + studentIds.length - 1)) / 2;
+        
+        // Assign the average rank to all students with this score
+        studentIds.forEach(studentId => {
+          judgeRanks[judgeId][studentId] = tiedRank;
+        });
+        
+        // Move rank pointer past this group
+        currentRank += studentIds.length;
+      });
   }
   
   // Calculate results for each student
@@ -111,7 +97,7 @@ export const calculateStudentScores = (
     // Get ranks from each judge for this student
     const judgeRankArray: JudgeRank[] = judges.map(judgeId => ({
       judgeId,
-      judgeName: judgeNamesMap[judgeId] || judgeId,
+      judgeName: judgeId, // Will be replaced with actual judge name later
       rank: judgeRanks[judgeId]?.[student.id] || 0
     }));
     
@@ -131,36 +117,36 @@ export const calculateStudentScores = (
     };
   });
   
-  // Sort by totalRank (lowest sum of ranks first) and assign final ranks
-  const sortedResults = [...results].sort((a, b) => a.totalRank - b.totalRank);
-  
-  let currentRank = 1;
-  let previousRankSum = null;
-  let tiedStudents = 0;
-  let rankSum = 0;
-  
-  // Assign final ranks (handling ties)
-  sortedResults.forEach((result, index) => {
-    if (previousRankSum !== null && result.totalRank > previousRankSum) {
-      // New rank
-      currentRank = index + 1;
-      tiedStudents = 0;
-      rankSum = currentRank;
-    } else if (previousRankSum !== null && result.totalRank === previousRankSum) {
-      // Tied with previous student(s)
-      tiedStudents++;
-      rankSum += index + 1;
+  // Group by totalRank to handle final rank ties properly
+  const rankGroups: { [totalRank: string]: StudentResult[] } = {};
+  results.forEach(result => {
+    const key = result.totalRank.toString();
+    if (!rankGroups[key]) {
+      rankGroups[key] = [];
     }
-    
-    const studentIndex = results.findIndex(r => r.student.id === result.student.id);
-    if (studentIndex !== -1) {
-      results[studentIndex].rank = tiedStudents > 0 
-        ? rankSum / (tiedStudents + 1) 
-        : currentRank;
-    }
-    
-    previousRankSum = result.totalRank;
+    rankGroups[key].push(result);
   });
+  
+  // Assign final ranks with proper tie handling
+  let currentRank = 1;
+  
+  Object.entries(rankGroups)
+    .sort(([rankSumA], [rankSumB]) => Number(rankSumA) - Number(rankSumB))
+    .forEach(([_, studentsInGroup]) => {
+      // Calculate the average rank for this tie group
+      const tiedRank = (currentRank + (currentRank + studentsInGroup.length - 1)) / 2;
+      
+      // Assign the same rank to all students with this total rank sum
+      studentsInGroup.forEach(result => {
+        const studentIndex = results.findIndex(r => r.student.id === result.student.id);
+        if (studentIndex !== -1) {
+          results[studentIndex].rank = tiedRank;
+        }
+      });
+      
+      // Move rank pointer past this group
+      currentRank += studentsInGroup.length;
+    });
   
   return results;
 };
