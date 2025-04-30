@@ -89,7 +89,6 @@ const Results = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="font-bold">Final Rank</TableHead>
                   <TableHead className="font-bold">Participant</TableHead>
                   {currentEvent.judges.map(judge => (
                     <TableHead key={judge.id} className="font-bold text-center">
@@ -110,7 +109,6 @@ const Results = () => {
                   .sort((a, b) => a.rank - b.rank)
                   .map((result) => (
                     <TableRow key={result.student.id} className={result.rank === 1 ? "bg-blue-50" : ""}>
-                      <TableCell className="font-medium">{result.rank.toFixed(1)}</TableCell>
                       <TableCell>{result.student.name}</TableCell>
                       
                       {/* Score for each judge */}

@@ -41,7 +41,6 @@ export const generatePDF = async (event: Event): Promise<void> => {
   // Create ranking table with judge-specific ranks
   const headers = [
     [
-      'Final Rank', 
       'Participant', 
       ...event.judges.map(judge => `${judge.name}`),
       ...event.judges.map(judge => `R(${judge.name})`),
@@ -54,7 +53,6 @@ export const generatePDF = async (event: Event): Promise<void> => {
     .sort((a, b) => a.rank - b.rank)
     .map(result => {
       const rowData = [
-        result.rank.toString(),
         result.student.name,
       ];
       
