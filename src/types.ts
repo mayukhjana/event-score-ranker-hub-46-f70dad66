@@ -30,33 +30,3 @@ export interface EventsState {
   events: Event[];
   currentEventId: string | null;
 }
-
-export interface SupabaseEvent {
-  id: string;
-  name: string;
-  school: string;
-  max_marks: number;
-  created_at: string;
-  updated_at: string;
-  user_id: string;
-}
-
-export interface SupabaseStudent {
-  id: string;
-  name: string;
-  event_id: string;
-}
-
-export interface SupabaseJudge {
-  id: string;
-  name: string;
-  event_id: string;
-}
-
-export interface SupabaseScore {
-  id: string;
-  value: number;
-  student_id: string;
-  judge_id: string;
-  event_id: string;
-}
