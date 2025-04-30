@@ -9,7 +9,152 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      events: {
+        Row: {
+          created_at: string
+          id: string
+          max_marks: number
+          name: string
+          school: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          max_marks?: number
+          name: string
+          school: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          max_marks?: number
+          name?: string
+          school?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      judges: {
+        Row: {
+          event_id: string
+          id: string
+          name: string
+        }
+        Insert: {
+          event_id: string
+          id?: string
+          name: string
+        }
+        Update: {
+          event_id?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "judges_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          id: string
+          name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id: string
+          name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      scores: {
+        Row: {
+          event_id: string
+          id: string
+          judge_id: string
+          student_id: string
+          value: number
+        }
+        Insert: {
+          event_id: string
+          id?: string
+          judge_id: string
+          student_id: string
+          value: number
+        }
+        Update: {
+          event_id?: string
+          id?: string
+          judge_id?: string
+          student_id?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scores_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scores_judge_id_fkey"
+            columns: ["judge_id"]
+            isOneToOne: false
+            referencedRelation: "judges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scores_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      students: {
+        Row: {
+          event_id: string
+          id: string
+          name: string
+        }
+        Insert: {
+          event_id: string
+          id?: string
+          name: string
+        }
+        Update: {
+          event_id?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "students_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

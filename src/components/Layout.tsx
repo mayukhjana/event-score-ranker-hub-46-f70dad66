@@ -2,6 +2,9 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
+import { LogOut, User } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,6 +13,7 @@ interface LayoutProps {
 
 const Layout = ({ children, title }: LayoutProps) => {
   const location = useLocation();
+  const { user, signOut } = useAuth();
   
   const navLinks = [
     { path: "/", label: "Home" },
@@ -44,6 +48,19 @@ const Layout = ({ children, title }: LayoutProps) => {
                 ))}
               </nav>
             </div>
+            
+            {user && (
+              <div className="flex items-center">
+                <div className="flex items-center mr-4">
+                  <User className="w-4 h-4 mr-1" />
+                  <span className="text-sm text-gray-600">{user.email}</span>
+                </div>
+                <Button variant="ghost" size="sm" onClick={signOut}>
+                  <LogOut className="w-4 h-4 mr-1" />
+                  Sign out
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </header>
