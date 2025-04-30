@@ -26,17 +26,21 @@ export const generatePDF = async (event: Event): Promise<void> => {
   doc.setFontSize(20);
   doc.text(`Event Results: ${event.name}`, 14, 22);
   
+  // Add school name
+  doc.setFontSize(14);
+  doc.text(`School: ${event.school || 'Not specified'}`, 14, 30);
+  
   // Add date
   doc.setFontSize(12);
-  doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 30);
+  doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 38);
 
   // Add participant and judge count with judge names
-  doc.text(`Participants: ${event.students.length} | Judges: ${event.judges.length}`, 14, 38);
+  doc.text(`Participants: ${event.students.length} | Judges: ${event.judges.length} | Max Marks: ${event.maxMarks || 100}`, 14, 46);
   
   // List judge names
   doc.setFontSize(10);
   const judgeNames = event.judges.map(judge => judge.name).join(", ");
-  doc.text(`Judges: ${judgeNames}`, 14, 46);
+  doc.text(`Judges: ${judgeNames}`, 14, 54);
   
   // Create ranking table with judge-specific ranks
   const headers = [
@@ -80,7 +84,7 @@ export const generatePDF = async (event: Event): Promise<void> => {
   autoTable(doc, {
     head: headers,
     body: data,
-    startY: 54,
+    startY: 62,
     headStyles: { 
       fillColor: [59, 130, 246],
       textColor: 255
@@ -94,6 +98,8 @@ export const generatePDF = async (event: Event): Promise<void> => {
   doc.addPage();
   doc.setFontSize(16);
   doc.text("Scoring Sheet", 14, 20);
+  doc.setFontSize(12);
+  doc.text(`Maximum Marks: ${event.maxMarks || 100}`, 14, 28);
   
   const scoreHeaders = [['Participant', ...event.judges.map(j => j.name)]];
   
@@ -114,7 +120,7 @@ export const generatePDF = async (event: Event): Promise<void> => {
   autoTable(doc, {
     head: scoreHeaders,
     body: scoreData,
-    startY: 30,
+    startY: 36,
     headStyles: { 
       fillColor: [59, 130, 246],
       textColor: 255

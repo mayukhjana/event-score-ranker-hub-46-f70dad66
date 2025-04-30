@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Event, Student, Judge, Score, EventsState } from "@/types";
@@ -7,8 +6,10 @@ interface EventContextType {
   events: Event[];
   currentEvent: Event | null;
   setCurrentEventId: (id: string | null) => void;
-  createEvent: (name: string) => string;
+  createEvent: (name: string, school?: string, maxMarks?: number) => string;
   setEventName: (id: string, name: string) => void;
+  setSchool: (id: string, school: string) => void;
+  setMaxMarks: (id: string, maxMarks: number) => void;
   setStudents: (id: string, students: Student[]) => void;
   setJudges: (id: string, judges: Judge[]) => void;
   updateScore: (id: string, studentId: string, judgeId: string, value: number) => void;
@@ -38,11 +39,13 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem("eventsData", JSON.stringify(eventsState));
   }, [eventsState]);
 
-  const createEvent = (name: string) => {
+  const createEvent = (name: string, school: string = "St. Xavier's Collegiate School Kolkata", maxMarks: number = 100) => {
     const id = uuidv4();
     const newEvent: Event = {
       id,
       name,
+      school,
+      maxMarks,
       students: [],
       judges: [],
       scores: [],
@@ -67,6 +70,24 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
       ...prev,
       events: prev.events.map(event => 
         event.id === id ? { ...event, name } : event
+      )
+    }));
+  };
+
+  const setSchool = (id: string, school: string) => {
+    setEventsState(prev => ({
+      ...prev,
+      events: prev.events.map(event => 
+        event.id === id ? { ...event, school } : event
+      )
+    }));
+  };
+
+  const setMaxMarks = (id: string, maxMarks: number) => {
+    setEventsState(prev => ({
+      ...prev,
+      events: prev.events.map(event => 
+        event.id === id ? { ...event, maxMarks } : event
       )
     }));
   };
@@ -146,6 +167,8 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
         setCurrentEventId,
         createEvent,
         setEventName,
+        setSchool,
+        setMaxMarks,
         setStudents,
         setJudges,
         updateScore,

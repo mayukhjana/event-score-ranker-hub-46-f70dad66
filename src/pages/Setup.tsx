@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
@@ -7,10 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, School } from 'lucide-react';
 import { useEvent } from '@/context/EventContext';
 import { v4 as uuidv4 } from 'uuid';
 import { Student, Judge } from '@/types';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const DEFAULT_SCHOOLS = ["St. Xavier's Collegiate School Kolkata"];
 
 const Setup = () => {
   const { toast } = useToast();
@@ -18,12 +26,18 @@ const Setup = () => {
   const { 
     currentEvent, 
     createEvent,
-    setEventName, 
+    setEventName,
+    setSchool,
+    setMaxMarks,
     setStudents, 
     setJudges 
   } = useEvent();
   
   const [localEventName, setLocalEventName] = useState("");
+  const [localSchool, setLocalSchool] = useState(DEFAULT_SCHOOLS[0]);
+  const [customSchool, setCustomSchool] = useState("");
+  const [showCustomSchoolInput, setShowCustomSchoolInput] = useState(false);
+  const [localMaxMarks, setLocalMaxMarks] = useState("100");
   const [localStudents, setLocalStudents] = useState<Student[]>([
     { id: uuidv4(), name: '' }
   ]);
@@ -35,6 +49,8 @@ const Setup = () => {
   useEffect(() => {
     if (currentEvent) {
       setLocalEventName(currentEvent.name);
+      setLocalSchool(currentEvent.school || DEFAULT_SCHOOLS[0]);
+      setLocalMaxMarks(currentEvent.maxMarks?.toString() || "100");
       setLocalStudents(
         currentEvent.students.length > 0 
         ? currentEvent.students 
@@ -96,6 +112,15 @@ const Setup = () => {
     );
   };
 
+  const handleSchoolChange = (value: string) => {
+    if (value === "custom") {
+      setShowCustomSchoolInput(true);
+    } else {
+      setShowCustomSchoolInput(false);
+      setLocalSchool(value);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -104,6 +129,28 @@ const Setup = () => {
       toast({
         title: "Event name required",
         description: "Please provide a name for your event",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate school
+    const finalSchool = showCustomSchoolInput ? customSchool : localSchool;
+    if (!finalSchool.trim()) {
+      toast({
+        title: "School name required",
+        description: "Please provide a school name",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate max marks
+    const maxMarks = parseInt(localMaxMarks);
+    if (isNaN(maxMarks) || maxMarks <= 0) {
+      toast({
+        title: "Invalid maximum marks",
+        description: "Please provide a valid positive number for maximum marks",
         variant: "destructive"
       });
       return;
@@ -135,11 +182,13 @@ const Setup = () => {
     if (currentEvent) {
       // Update existing event
       setEventName(currentEvent.id, localEventName);
+      setSchool(currentEvent.id, finalSchool);
+      setMaxMarks(currentEvent.id, maxMarks);
       setStudents(currentEvent.id, localStudents);
       setJudges(currentEvent.id, localJudges);
     } else {
       // Create new event if none exists
-      const id = createEvent(localEventName);
+      const id = createEvent(localEventName, finalSchool, maxMarks);
       setStudents(id, localStudents);
       setJudges(id, localJudges);
     }
@@ -168,6 +217,53 @@ const Setup = () => {
                   placeholder="e.g., School Talent Show 2025"
                   value={localEventName}
                   onChange={(e) => setLocalEventName(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="school">School</Label>
+                <Select 
+                  onValueChange={handleSchoolChange}
+                  defaultValue={localSchool}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a school" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DEFAULT_SCHOOLS.map((school) => (
+                      <SelectItem key={school} value={school}>
+                        <div className="flex items-center">
+                          <School className="mr-2 h-4 w-4" />
+                          <span>{school}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="custom">
+                      + Add custom school
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                {showCustomSchoolInput && (
+                  <div className="mt-2">
+                    <Input
+                      placeholder="Enter school name"
+                      value={customSchool}
+                      onChange={(e) => setCustomSchool(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="maxMarks">Maximum Marks per Judge</Label>
+                <Input
+                  id="maxMarks"
+                  type="number"
+                  placeholder="100"
+                  value={localMaxMarks}
+                  onChange={(e) => setLocalMaxMarks(e.target.value)}
+                  min="1"
                 />
               </div>
             </div>

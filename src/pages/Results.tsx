@@ -80,6 +80,17 @@ const Results = () => {
   return (
     <Layout title="Results">
       <div className="space-y-6">
+        {/* Event information */}
+        <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
+          <div>
+            <h3 className="text-lg font-medium">{currentEvent.name}</h3>
+            <p className="text-gray-500">{currentEvent.school || 'School not specified'}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-gray-500">Maximum marks: {currentEvent.maxMarks || 100}</p>
+          </div>
+        </div>
+        
         <Card className="p-6">
           <h3 className="text-lg font-medium mb-4">
             Event: {currentEvent.name}
@@ -100,7 +111,7 @@ const Results = () => {
                       R({judge.name})
                     </TableHead>
                   ))}
-                  <TableHead className="font-bold text-center">R(P)+R(Q)</TableHead>
+                  <TableHead className="font-bold text-center">Sum of Ranks</TableHead>
                   <TableHead className="font-bold text-center">Final Rank</TableHead>
                 </TableRow>
               </TableHeader>

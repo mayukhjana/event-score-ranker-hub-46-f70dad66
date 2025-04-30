@@ -18,6 +18,8 @@ export interface Score {
 export interface Event {
   id: string;
   name: string;
+  school: string;
+  maxMarks: number;
   students: Student[];
   judges: Judge[];
   scores: Score[];

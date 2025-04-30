@@ -37,20 +37,26 @@ const Scoring = () => {
 
   if (!currentEvent) return null;
 
-  const { students, judges, scores } = currentEvent;
+  const { students, judges, scores, maxMarks } = currentEvent;
 
   // Helper to get the score for a specific student and judge
   const getScore = (studentId: string, judgeId: string): number => {
     const scoreEntry = scores.find(
       (s) => s.studentId === studentId && s.judgeId === judgeId
     );
-    return scoreEntry ? scoreEntry.value : 50; // Default to 50
+    return scoreEntry ? scoreEntry.value : maxMarks / 2; // Default to half of max marks
   };
 
   const handleScoreChange = (studentId: string, judgeId: string, valueStr: string) => {
     const value = parseFloat(valueStr);
-    if (!isNaN(value) && value >= 0 && value <= 100) {
+    if (!isNaN(value) && value >= 0 && value <= maxMarks) {
       updateScore(currentEvent.id, studentId, judgeId, value);
+    } else {
+      toast({
+        title: "Invalid score",
+        description: `Score must be between 0 and ${maxMarks}`,
+        variant: "destructive"
+      });
     }
   };
 
@@ -64,6 +70,17 @@ const Scoring = () => {
   return (
     <Layout title="Scoring">
       <div className="space-y-6">
+        {/* Event information */}
+        <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
+          <div>
+            <h3 className="text-lg font-medium">{currentEvent.name}</h3>
+            <p className="text-gray-500">{currentEvent.school}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-gray-500">Maximum marks: {maxMarks}</p>
+          </div>
+        </div>
+        
         {/* Progress indicator */}
         <div className="bg-gray-100 rounded-lg p-4 mb-6">
           <div className="text-sm text-gray-500 mb-2">
@@ -107,7 +124,7 @@ const Scoring = () => {
                           <Input
                             type="number"
                             min="0"
-                            max="100"
+                            max={maxMarks}
                             step="1"
                             value={getScore(student.id, judge.id)}
                             onChange={(e) => handleScoreChange(student.id, judge.id, e.target.value)}
