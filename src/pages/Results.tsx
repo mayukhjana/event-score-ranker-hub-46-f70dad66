@@ -31,8 +31,8 @@ interface StudentResult {
   totalScore: number;
   averageScore: number;
   judgeRanks: JudgeRank[];
-  totalRank: number;
-  rank: number;
+  totalRank: number; // Sum of individual judge ranks
+  rank: number; // Final overall rank
 }
 
 const Results = () => {
@@ -116,9 +116,7 @@ const Results = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {results
-                  .sort((a, b) => a.rank - b.rank)
-                  .map((result) => (
+                {results.map((result) => (
                     <TableRow key={result.student.id} className={result.rank === 1 ? "bg-blue-50" : ""}>
                       <TableCell>{result.student.name}</TableCell>
                       
@@ -141,16 +139,16 @@ const Results = () => {
                         );
                         return (
                           <TableCell key={`rank-${judge.id}`} className="text-center">
-                            {judgeRank ? judgeRank.rank.toFixed(1) : "-"}
+                            {judgeRank ? Math.floor(judgeRank.rank) : "-"}
                           </TableCell>
                         );
                       })}
                       
                       <TableCell className="text-center font-medium">
-                        {result.totalRank.toFixed(1)}
+                        {Math.floor(result.totalRank)}
                       </TableCell>
                       <TableCell className="text-center font-medium">
-                        {result.rank.toFixed(1)}
+                        {Math.floor(result.rank)}
                       </TableCell>
                     </TableRow>
                   ))}

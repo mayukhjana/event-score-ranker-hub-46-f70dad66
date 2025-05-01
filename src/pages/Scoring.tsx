@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 
 const Scoring = () => {
   const navigate = useNavigate();
@@ -121,14 +122,10 @@ const Scoring = () => {
                       </TableCell>
                       {judges.map(judge => (
                         <TableCell key={judge.id} className="p-1 text-center">
-                          <Input
-                            type="number"
-                            min="0"
-                            max={maxMarks}
-                            step="1"
-                            value={getScore(student.id, judge.id)}
+                          <Textarea
+                            value={getScore(student.id, judge.id).toString()}
                             onChange={(e) => handleScoreChange(student.id, judge.id, e.target.value)}
-                            className="h-8 w-16 text-center mx-auto"
+                            className="h-8 w-16 text-center mx-auto resize-none min-h-[40px]"
                           />
                         </TableCell>
                       ))}
