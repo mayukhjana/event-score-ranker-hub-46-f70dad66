@@ -121,7 +121,7 @@ const Setup = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate event name
@@ -178,27 +178,36 @@ const Setup = () => {
       return;
     }
 
-    // Save data to context
-    if (currentEvent) {
-      // Update existing event
-      setEventName(currentEvent.id, localEventName);
-      setSchool(currentEvent.id, finalSchool);
-      setMaxMarks(currentEvent.id, maxMarks);
-      setStudents(currentEvent.id, localStudents);
-      setJudges(currentEvent.id, localJudges);
-    } else {
-      // Create new event if none exists
-      const id = createEvent(localEventName, finalSchool, maxMarks);
-      setStudents(id, localStudents);
-      setJudges(id, localJudges);
+    try {
+      // Save data to context
+      if (currentEvent) {
+        // Update existing event
+        await setEventName(currentEvent.id, localEventName);
+        await setSchool(currentEvent.id, finalSchool);
+        await setMaxMarks(currentEvent.id, maxMarks);
+        await setStudents(currentEvent.id, localStudents);
+        await setJudges(currentEvent.id, localJudges);
+      } else {
+        // Create new event if none exists
+        const id = await createEvent(localEventName, finalSchool, maxMarks);
+        await setStudents(id, localStudents);
+        await setJudges(id, localJudges);
+      }
+      
+      toast({
+        title: "Event setup complete",
+        description: "You can now proceed to scoring"
+      });
+      
+      navigate('/scoring');
+    } catch (error) {
+      console.error("Error saving event:", error);
+      toast({
+        title: "Error saving event",
+        description: "An error occurred while saving your event. Please try again.",
+        variant: "destructive"
+      });
     }
-    
-    toast({
-      title: "Event setup complete",
-      description: "You can now proceed to scoring"
-    });
-    
-    navigate('/scoring');
   };
 
   return (

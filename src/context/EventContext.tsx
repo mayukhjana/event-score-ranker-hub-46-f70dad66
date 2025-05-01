@@ -132,13 +132,19 @@ export const EventProvider = ({ children }: { children: ReactNode }) => {
 
   const createEvent = async (name: string, school: string = "St. Xavier's Collegiate School Kolkata", maxMarks: number = 100) => {
     try {
+      // Check if user exists
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
       // Insert new event into Supabase
       const { data: eventData, error: eventError } = await supabase
         .from('events')
         .insert({
           name,
           school,
-          max_marks: maxMarks
+          max_marks: maxMarks,
+          user_id: user.id // Add the user_id from the authenticated user
         })
         .select()
         .single();
