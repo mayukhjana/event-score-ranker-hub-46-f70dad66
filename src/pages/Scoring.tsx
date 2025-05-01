@@ -40,21 +40,27 @@ const Scoring = () => {
   const { students, judges, scores, maxMarks } = currentEvent;
 
   // Helper to get the score for a specific student and judge
-  const getScore = (studentId: string, judgeId: string): number => {
+  const getScore = (studentId: string, judgeId: string): string => {
     const scoreEntry = scores.find(
       (s) => s.studentId === studentId && s.judgeId === judgeId
     );
-    return scoreEntry ? scoreEntry.value : maxMarks / 2; // Default to half of max marks
+    return scoreEntry ? scoreEntry.value.toString() : "nil";
   };
 
   const handleScoreChange = (studentId: string, judgeId: string, valueStr: string) => {
+    if (valueStr === "nil" || valueStr === "") {
+      // Remove the score if it's nil or empty
+      updateScore(currentEvent.id, studentId, judgeId, 0);
+      return;
+    }
+
     const value = parseFloat(valueStr);
-    if (!isNaN(value) && value >= 0 && value <= maxMarks) {
+    if (!isNaN(value)) {
       updateScore(currentEvent.id, studentId, judgeId, value);
     } else {
       toast({
         title: "Invalid score",
-        description: `Score must be between 0 and ${maxMarks}`,
+        description: "Please enter a valid number or 'nil'",
         variant: "destructive"
       });
     }
@@ -122,10 +128,7 @@ const Scoring = () => {
                       {judges.map(judge => (
                         <TableCell key={judge.id} className="p-1 text-center">
                           <Input
-                            type="number"
-                            min="0"
-                            max={maxMarks}
-                            step="1"
+                            type="text"
                             value={getScore(student.id, judge.id)}
                             onChange={(e) => handleScoreChange(student.id, judge.id, e.target.value)}
                             className="h-8 w-16 text-center mx-auto"

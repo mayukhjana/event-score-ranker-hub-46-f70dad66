@@ -53,33 +53,31 @@ export const generatePDF = async (event: Event): Promise<void> => {
     ]
   ];
   
-  const data = resultsWithJudgeNames
-    .sort((a, b) => a.rank - b.rank)
-    .map(result => {
-      const rowData = [
-        result.student.name,
-      ];
-      
-      // Add scores for each judge
-      event.judges.forEach(judge => {
-        const score = event.scores.find(
-          s => s.studentId === result.student.id && s.judgeId === judge.id
-        );
-        rowData.push(score ? score.value.toString() : '-');
-      });
-      
-      // Add ranks for each judge
-      event.judges.forEach(judge => {
-        const judgeRank = result.judgeRanks.find(jr => jr.judgeId === judge.id);
-        rowData.push(judgeRank ? judgeRank.rank.toFixed(1) : '-');
-      });
-      
-      // Add sum of ranks and final rank
-      rowData.push(result.totalRank.toFixed(1));
-      rowData.push(result.rank.toFixed(1));
-      
-      return rowData;
+  const data = resultsWithJudgeNames.map(result => {
+    const rowData = [
+      result.student.name,
+    ];
+    
+    // Add scores for each judge
+    event.judges.forEach(judge => {
+      const score = event.scores.find(
+        s => s.studentId === result.student.id && s.judgeId === judge.id
+      );
+      rowData.push(score ? score.value.toString() : 'nil');
     });
+    
+    // Add ranks for each judge
+    event.judges.forEach(judge => {
+      const judgeRank = result.judgeRanks.find(jr => jr.judgeId === judge.id);
+      rowData.push(judgeRank ? judgeRank.rank.toFixed(1) : '-');
+    });
+    
+    // Add sum of ranks and final rank
+    rowData.push(result.totalRank.toFixed(1));
+    rowData.push(result.rank.toFixed(1));
+    
+    return rowData;
+  });
   
   autoTable(doc, {
     head: headers,
@@ -111,7 +109,7 @@ export const generatePDF = async (event: Event): Promise<void> => {
         s => s.studentId === student.id && s.judgeId === judge.id
       );
       
-      row.push(score ? score.value.toString() : '-');
+      row.push(score ? score.value.toString() : 'nil');
     });
     
     return row;

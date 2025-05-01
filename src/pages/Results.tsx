@@ -116,44 +116,42 @@ const Results = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {results
-                  .sort((a, b) => a.rank - b.rank)
-                  .map((result) => (
-                    <TableRow key={result.student.id} className={result.rank === 1 ? "bg-blue-50" : ""}>
-                      <TableCell>{result.student.name}</TableCell>
-                      
-                      {/* Score for each judge */}
-                      {currentEvent.judges.map(judge => {
-                        const score = currentEvent.scores.find(
-                          s => s.studentId === result.student.id && s.judgeId === judge.id
-                        );
-                        return (
-                          <TableCell key={`score-${judge.id}`} className="text-center">
-                            {score ? score.value : "-"}
-                          </TableCell>
-                        );
-                      })}
-                      
-                      {/* Rank given by each judge */}
-                      {currentEvent.judges.map(judge => {
-                        const judgeRank = result.judgeRanks.find(
-                          jr => jr.judgeId === judge.id
-                        );
-                        return (
-                          <TableCell key={`rank-${judge.id}`} className="text-center">
-                            {judgeRank ? judgeRank.rank.toFixed(1) : "-"}
-                          </TableCell>
-                        );
-                      })}
-                      
-                      <TableCell className="text-center font-medium">
-                        {result.totalRank.toFixed(1)}
-                      </TableCell>
-                      <TableCell className="text-center font-medium">
-                        {result.rank.toFixed(1)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                {results.map((result) => (
+                  <TableRow key={result.student.id} className={result.rank === 1 ? "bg-blue-50" : ""}>
+                    <TableCell>{result.student.name}</TableCell>
+                    
+                    {/* Score for each judge */}
+                    {currentEvent.judges.map(judge => {
+                      const score = currentEvent.scores.find(
+                        s => s.studentId === result.student.id && s.judgeId === judge.id
+                      );
+                      return (
+                        <TableCell key={`score-${judge.id}`} className="text-center">
+                          {score ? score.value : "nil"}
+                        </TableCell>
+                      );
+                    })}
+                    
+                    {/* Rank given by each judge */}
+                    {currentEvent.judges.map(judge => {
+                      const judgeRank = result.judgeRanks.find(
+                        jr => jr.judgeId === judge.id
+                      );
+                      return (
+                        <TableCell key={`rank-${judge.id}`} className="text-center">
+                          {judgeRank ? judgeRank.rank.toFixed(1) : "-"}
+                        </TableCell>
+                      );
+                    })}
+                    
+                    <TableCell className="text-center font-medium">
+                      {result.totalRank.toFixed(1)}
+                    </TableCell>
+                    <TableCell className="text-center font-medium">
+                      {result.rank.toFixed(1)}
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>
