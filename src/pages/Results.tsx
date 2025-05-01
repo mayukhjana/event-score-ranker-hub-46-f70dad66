@@ -148,7 +148,7 @@ const Results = () => {
                       {result.totalRank.toFixed(1)}
                     </TableCell>
                     <TableCell className="text-center font-medium">
-                      {result.rank.toFixed(1)}
+                      {Math.floor(result.rank)}
                     </TableCell>
                   </TableRow>
                 ))}
