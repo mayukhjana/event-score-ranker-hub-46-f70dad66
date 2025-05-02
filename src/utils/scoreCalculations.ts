@@ -128,13 +128,13 @@ export const calculateStudentScores = (
   });
   
   // Assign final ranks with modified tie handling - giving same rank to tied students
+  // and skipping the next rank(s) for the subsequent student(s)
   let currentRank = 1;
   
   Object.entries(rankGroups)
     .sort(([rankSumA], [rankSumB]) => Number(rankSumA) - Number(rankSumB))
     .forEach(([_, studentsInGroup]) => {
       // Assign the same rank to all students with this total rank sum
-      // (No average rank for ties - they all get the same rank)
       studentsInGroup.forEach(result => {
         const studentIndex = results.findIndex(r => r.student.id === result.student.id);
         if (studentIndex !== -1) {
@@ -142,7 +142,7 @@ export const calculateStudentScores = (
         }
       });
       
-      // Move rank pointer past this group to the next rank
+      // Increment rank by the number of tied students (skipping the next ranks)
       currentRank += studentsInGroup.length;
     });
   

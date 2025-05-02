@@ -74,7 +74,7 @@ export const generatePDF = async (event: Event): Promise<void> => {
     
     // Add sum of ranks and final rank
     rowData.push(result.totalRank.toFixed(1));
-    rowData.push(result.rank.toFixed(0)); // Changed to display without decimal for final rank
+    rowData.push(result.rank.toFixed(0)); // Display final rank as whole number
     
     return rowData;
   });
