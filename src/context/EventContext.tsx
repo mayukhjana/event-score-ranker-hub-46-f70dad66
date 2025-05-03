@@ -20,7 +20,7 @@ interface EventContextType {
   setScores: (id: string, scores: Score[]) => Promise<void>;
   setScore: (id: string, studentId: string, judgeId: string, value: number) => Promise<void>;
   setRankingMethod: (id: string, method: "spearman" | "general") => Promise<void>;
-  deleteEvent?: (id: string) => Promise<void>;
+  deleteEvent: (id: string) => Promise<void>;
 }
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
@@ -77,16 +77,19 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
       const id = uuidv4();
 
       try {
-        const { error } = await supabase.from('events').insert([
-          {
-            id,
-            name,
-            school,
-            max_marks: maxMarks,
-            ranking_method: rankingMethod,
-            user_id: supabase.auth.getUser().then(res => res.data.user?.id) || 'anonymous',
-          },
-        ]);
+        // Get current user ID
+        const { data: userData } = await supabase.auth.getUser();
+        const userId = userData.user?.id || 'anonymous';
+        
+        // Insert the event
+        const { error } = await supabase.from('events').insert({
+          id,
+          name,
+          school,
+          max_marks: maxMarks,
+          ranking_method: rankingMethod,
+          user_id: userId
+        });
 
         if (error) {
           throw new Error(error.message);
@@ -345,15 +348,13 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
           }
         } else {
           // Insert a new score
-          const { error: insertError } = await supabase.from('scores').insert([
-            {
-              id: uuidv4(),
-              value,
-              student_id: studentId,
-              judge_id: judgeId,
-              event_id: id,
-            },
-          ]);
+          const { error: insertError } = await supabase.from('scores').insert({
+            id: uuidv4(),
+            value,
+            student_id: studentId,
+            judge_id: judgeId,
+            event_id: id,
+          });
 
           if (insertError) {
             throw new Error(insertError.message);
@@ -397,6 +398,7 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
     setError(null);
 
     try {
+      // Check if the ranking_method column exists in the events table
       const { error } = await supabase
         .from('events')
         .update({ ranking_method: method })
@@ -480,5 +482,5 @@ const supabaseEventToEvent = (supabaseEvent: SupabaseEvent): Event => ({
   judges: [], // Fetch separately if needed
   scores: [], // Fetch separately if needed
   createdAt: supabaseEvent.created_at,
-  rankingMethod: supabaseEvent.ranking_method as "spearman" | "general" | undefined,
+  rankingMethod: supabaseEvent.ranking_method,
 });

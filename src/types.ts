@@ -40,7 +40,7 @@ export interface SupabaseEvent {
   created_at: string;
   updated_at: string;
   user_id: string;
-  ranking_method?: string;
+  ranking_method?: "spearman" | "general";
 }
 
 export interface SupabaseStudent {
