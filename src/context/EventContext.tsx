@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -192,7 +193,7 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
           throw new Error("User not authenticated");
         }
         
-        // First, create the event with basic properties
+        // Modified: Use the proper column name from Supabase types
         const { error: insertError } = await supabase
           .from('events')
           .insert({
@@ -201,7 +202,7 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
             school,
             max_marks: maxMarks,
             user_id: userId,
-            ranking_method: rankingMethod // Add ranking_method directly to the insert
+            ranking_method: rankingMethod // This now matches the database column name
           });
 
         if (insertError) {

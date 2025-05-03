@@ -15,6 +15,7 @@ export type Database = {
           id: string
           max_marks: number
           name: string
+          ranking_method: string | null
           school: string
           updated_at: string
           user_id: string
@@ -24,6 +25,7 @@ export type Database = {
           id?: string
           max_marks?: number
           name: string
+          ranking_method?: string | null
           school: string
           updated_at?: string
           user_id: string
@@ -33,6 +35,7 @@ export type Database = {
           id?: string
           max_marks?: number
           name?: string
+          ranking_method?: string | null
           school?: string
           updated_at?: string
           user_id?: string
