@@ -209,15 +209,14 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
             console.warn("Could not update ranking_method using RPC, falling back to direct update", rpcError);
             
             // Create a properly typed custom object for the update
-            // We need to use type assertion since we can't modify the types.ts file
             const updateData = {
               ranking_method: rankingMethod
             };
             
-            // Use the generic update method with type assertion
+            // Use type assertion to handle the Supabase typing issue
             const { error: updateError } = await supabase
               .from('events')
-              .update(updateData as any)
+              .update(updateData as { ranking_method: "spearman" | "general" })
               .eq('id', id);
               
             if (updateError) {
@@ -561,10 +560,10 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
           ranking_method: method
         };
         
-        // Use the generic update method with type assertion
+        // Use type assertion to handle the Supabase typing issue
         const { error } = await supabase
           .from('events')
-          .update(updateData as any)
+          .update(updateData as { ranking_method: "spearman" | "general" })
           .eq('id', id);
           
         if (error) {
