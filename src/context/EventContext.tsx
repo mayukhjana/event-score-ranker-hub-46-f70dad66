@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Event, Student, Judge, Score, ScoringColumn, SupabaseEvent, SupabaseStudent, SupabaseJudge, SupabaseScore, SupabaseScoringColumn } from "@/types";
@@ -209,11 +208,15 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
           } catch (rpcError) {
             console.warn("Could not update ranking_method using RPC, falling back to direct update", rpcError);
             
-            // Try direct update as a fallback
-            // Use type assertion to bypass strict typing
-            const { error: updateError } = await (supabase as any)
+            // Fix for TS2345 error - create a custom type for the update
+            interface CustomEventUpdate {
+              ranking_method: string;
+            }
+            
+            // Use explicit casting to bypass strict typing
+            const { error: updateError } = await supabase
               .from('events')
-              .update({ ranking_method: rankingMethod })
+              .update(({ ranking_method: rankingMethod } as unknown) as any)
               .eq('id', id);
               
             if (updateError) {
@@ -552,11 +555,10 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
       } catch (rpcError) {
         console.warn("Could not update ranking_method using RPC, falling back to direct update", rpcError);
         
-        // Try direct update as a fallback
-        // Use type assertion to bypass strict typing
-        const { error } = await (supabase as any)
+        // Fix for TS2345 error - use explicit casting to bypass strict typing
+        const { error } = await supabase
           .from('events')
-          .update({ ranking_method: method })
+          .update(({ ranking_method: method } as unknown) as any)
           .eq('id', id);
           
         if (error) {
