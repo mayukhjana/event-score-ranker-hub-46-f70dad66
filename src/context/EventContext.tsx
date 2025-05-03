@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Event, Student, Judge, Score, SupabaseEvent, SupabaseStudent, SupabaseJudge, SupabaseScore } from "@/types";
@@ -104,7 +103,7 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
               judges,
               scores,
               createdAt: event.created_at,
-              rankingMethod: event.ranking_method
+              rankingMethod: (event as any).ranking_method
             });
           }
           
