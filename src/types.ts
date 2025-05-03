@@ -77,3 +77,13 @@ export interface SupabaseScoringColumn {
   order: number;
   event_id: string;
 }
+
+// This helps us with the update type for Supabase
+export interface SupabaseEventUpdate {
+  name?: string;
+  school?: string;
+  max_marks?: number;
+  updated_at?: string;
+  user_id?: string;
+  ranking_method?: "spearman" | "general";
+}

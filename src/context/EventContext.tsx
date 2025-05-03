@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Event, Student, Judge, Score, ScoringColumn, SupabaseEvent, SupabaseStudent, SupabaseJudge, SupabaseScore, SupabaseScoringColumn } from "@/types";
+import { 
+  Event, Student, Judge, Score, ScoringColumn, 
+  SupabaseEvent, SupabaseStudent, SupabaseJudge, 
+  SupabaseScore, SupabaseScoringColumn, SupabaseEventUpdate 
+} from "@/types";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "@/hooks/use-toast";
 
@@ -182,51 +186,45 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
           throw new Error("User not authenticated");
         }
         
-        // Check if ranking_method column exists in events table
+        // First, create the event with basic properties
+        const { error: insertError } = await supabase
+          .from('events')
+          .insert({
+            id,
+            name,
+            school,
+            max_marks: maxMarks,
+            user_id: userId,
+          });
+
+        if (insertError) {
+          throw new Error(insertError.message);
+        }
+        
+        // Then try to update with ranking_method
         try {
-          // First, try to create the event without ranking_method
-          const { error: insertError } = await supabase
-            .from('events')
-            .insert({
-              id,
-              name,
-              school,
-              max_marks: maxMarks,
-              user_id: userId,
-            });
-  
-          if (insertError) {
-            throw new Error(insertError.message);
-          }
+          await supabase.rpc('update_ranking_method', { 
+            event_id: id, 
+            method: rankingMethod 
+          });
+        } catch (rpcError) {
+          console.warn("Could not update ranking_method using RPC, falling back to direct update", rpcError);
           
-          // Then try to update with ranking_method
-          try {
-            await supabase.rpc('update_ranking_method', { 
-              event_id: id, 
-              method: rankingMethod 
-            });
-          } catch (rpcError) {
-            console.warn("Could not update ranking_method using RPC, falling back to direct update", rpcError);
-            
-            // Create a properly typed custom object for the update
-            const updateData = {
-              ranking_method: rankingMethod
-            };
-            
-            // Use type assertion to handle the Supabase typing issue
-            const { error: updateError } = await supabase
-              .from('events')
-              .update(updateData as { ranking_method: "spearman" | "general" })
-              .eq('id', id);
+          // Use a type that matches the database schema
+          const updateData: SupabaseEventUpdate = {
+            ranking_method: rankingMethod
+          };
+          
+          // Use the typed update method
+          const { error: updateError } = await supabase
+            .from('events')
+            .update(updateData)
+            .eq('id', id);
               
-            if (updateError) {
-              console.warn("Could not update ranking_method directly:", updateError);
-              // Continue without setting ranking_method
-            }
+          if (updateError) {
+            console.warn("Could not update ranking_method directly:", updateError);
+            // Continue without setting ranking_method
           }
-        } catch (err) {
-          console.error("Error creating event:", err);
-          throw err;
         }
 
         const newEvent: Event = {
@@ -555,15 +553,15 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
       } catch (rpcError) {
         console.warn("Could not update ranking_method using RPC, falling back to direct update", rpcError);
         
-        // Create a properly typed custom object for the update
-        const updateData = {
+        // Use a type that matches the database schema
+        const updateData: SupabaseEventUpdate = {
           ranking_method: method
         };
         
-        // Use type assertion to handle the Supabase typing issue
+        // Use the typed update method
         const { error } = await supabase
           .from('events')
-          .update(updateData as { ranking_method: "spearman" | "general" })
+          .update(updateData)
           .eq('id', id);
           
         if (error) {
