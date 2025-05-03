@@ -19,7 +19,7 @@ import {
 const Scoring = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { currentEvent, updateScore } = useEvent();
+  const { currentEvent, setScore } = useEvent();
 
   useEffect(() => {
     // Redirect to setup if no event configuration exists
@@ -50,13 +50,13 @@ const Scoring = () => {
   const handleScoreChange = (studentId: string, judgeId: string, valueStr: string) => {
     if (valueStr === "nil" || valueStr === "") {
       // Remove the score if it's nil or empty
-      updateScore(currentEvent.id, studentId, judgeId, 0);
+      setScore(currentEvent.id, studentId, judgeId, 0);
       return;
     }
 
     const value = parseFloat(valueStr);
     if (!isNaN(value)) {
-      updateScore(currentEvent.id, studentId, judgeId, value);
+      setScore(currentEvent.id, studentId, judgeId, value);
     } else {
       toast({
         title: "Invalid score",

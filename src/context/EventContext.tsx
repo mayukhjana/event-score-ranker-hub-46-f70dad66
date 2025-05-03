@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Event, Student, Judge, Score, SupabaseEvent, SupabaseStudent, SupabaseJudge, SupabaseScore } from "@/types";
@@ -9,7 +10,7 @@ interface EventContextType {
   currentEventId: string | null;
   isLoading: boolean;
   error: string | null;
-  createEvent: (name: string, school: string, maxMarks: number, rankingMethod?: "spearman" | "general") => Promise<string>;
+  createEvent: (name: string, school?: string, maxMarks?: number, rankingMethod?: "spearman" | "general") => Promise<string>;
   setCurrentEventId: (id: string | null) => void;
   setEventName: (id: string, name: string) => Promise<void>;
   setSchool: (id: string, school: string) => Promise<void>;
@@ -19,6 +20,7 @@ interface EventContextType {
   setScores: (id: string, scores: Score[]) => Promise<void>;
   setScore: (id: string, studentId: string, judgeId: string, value: number) => Promise<void>;
   setRankingMethod: (id: string, method: "spearman" | "general") => Promise<void>;
+  deleteEvent?: (id: string) => Promise<void>;
 }
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
@@ -46,7 +48,7 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
       setIsLoading(true);
       try {
         const { data, error } = await supabase
-          .from<SupabaseEvent>('events')
+          .from('events')
           .select('*')
           .order('created_at', { ascending: false });
 
@@ -54,7 +56,7 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
           throw new Error(error.message);
         }
 
-        const formattedEvents = data ? data.map(supabaseEventToEvent) : [];
+        const formattedEvents = data ? data.map((item: any) => supabaseEventToEvent(item as SupabaseEvent)) : [];
         setEvents(formattedEvents);
       } catch (err: any) {
         setError(err.message);
@@ -69,7 +71,7 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
   const currentEvent = events.find(event => event.id === currentEventId) || null;
 
   const createEvent = useCallback(
-    async (name: string, school: string, maxMarks: number, rankingMethod: "spearman" | "general" = "spearman"): Promise<string> => {
+    async (name: string, school: string = "", maxMarks: number = 100, rankingMethod: "spearman" | "general" = "spearman"): Promise<string> => {
       setIsLoading(true);
       setError(null);
       const id = uuidv4();
@@ -82,7 +84,7 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
             school,
             max_marks: maxMarks,
             ranking_method: rankingMethod,
-            user_id: supabase.auth.user()?.id,
+            user_id: supabase.auth.getUser().then(res => res.data.user?.id) || 'anonymous',
           },
         ]);
 
@@ -319,7 +321,7 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
       try {
         // Check if the score already exists
         const { data: existingScores, error: selectError } = await supabase
-          .from<SupabaseScore>('scores')
+          .from('scores')
           .select('*')
           .eq('student_id', studentId)
           .eq('judge_id', judgeId)
@@ -360,7 +362,7 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
 
         // Fetch the updated scores for the event
         const { data: updatedScores, error: fetchError } = await supabase
-          .from<SupabaseScore>('scores')
+          .from('scores')
           .select('*')
           .eq('event_id', id);
 
@@ -368,17 +370,19 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
           throw new Error(fetchError.message);
         }
 
-        // Convert Supabase scores to the app's Score type
-        const formattedScores: Score[] = updatedScores.map(supabaseScore => ({
-          studentId: supabaseScore.student_id,
-          judgeId: supabaseScore.judge_id,
-          value: supabaseScore.value,
-        }));
+        if (updatedScores) {
+          // Convert Supabase scores to the app's Score type
+          const formattedScores: Score[] = updatedScores.map((score: any) => ({
+            studentId: score.student_id,
+            judgeId: score.judge_id,
+            value: score.value,
+          }));
 
-        // Update the local state with the formatted scores
-        setEvents(prevEvents =>
-          prevEvents.map(event => (event.id === id ? { ...event, scores: formattedScores } : event))
-        );
+          // Update the local state with the formatted scores
+          setEvents(prevEvents =>
+            prevEvents.map(event => (event.id === id ? { ...event, scores: formattedScores } : event))
+          );
+        }
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -412,6 +416,34 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
     }
   }, []);
 
+  // Add deleteEvent function for Index.tsx
+  const deleteEvent = useCallback(async (id: string) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Delete event and related data (cascade delete should handle this if set up in Supabase)
+      const { error } = await supabase
+        .from('events')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // Update local state
+      setEvents(prevEvents => prevEvents.filter(event => event.id !== id));
+      if (currentEventId === id) {
+        setCurrentEventId(null);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentEventId]);
+
   const value: EventContextType = {
     events,
     currentEvent,
@@ -428,6 +460,7 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
     setScores,
     setScore,
     setRankingMethod,
+    deleteEvent,
   };
 
   return (

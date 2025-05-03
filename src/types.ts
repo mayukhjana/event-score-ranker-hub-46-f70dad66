@@ -1,3 +1,4 @@
+
 export interface Student {
   id: string;
   name: string;
@@ -23,7 +24,7 @@ export interface Event {
   judges: Judge[];
   scores: Score[];
   createdAt: string;
-  rankingMethod?: "spearman" | "general"; // Add ranking method field
+  rankingMethod?: "spearman" | "general";
 }
 
 export interface EventsState {

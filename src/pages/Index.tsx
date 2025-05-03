@@ -17,15 +17,16 @@ const Index = () => {
   const { toast } = useToast();
   
   const handleCreateEvent = () => {
-    const eventId = createEvent("New Event");
-    navigate(`/setup`);
+    createEvent("New Event", "", 100, "spearman").then((eventId) => {
+      navigate(`/setup`);
+    });
   };
 
   const handleDeleteEvent = (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (confirm("Are you sure you want to delete this event? All data will be lost.")) {
-      deleteEvent(id);
+      deleteEvent?.(id);
       toast({
         title: "Event deleted",
         description: "The event has been deleted successfully",
