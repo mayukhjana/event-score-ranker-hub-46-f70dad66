@@ -1,3 +1,4 @@
+
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
 import { Event, Judge, ScoringColumn } from "@/types";
@@ -169,10 +170,10 @@ export const generateJudgeScoringSheets = (event: Event): void => {
   
   // First add a cover page
   doc.setFontSize(24);
-  doc.text(`Scoring Sheets: ${event.name}`, 14, 30, { align: 'left' });
+  doc.text(`Scoring Sheets: ${event.name}`, 14, 30, { align: 'left', maxWidth: 180 });
   
   doc.setFontSize(16);
-  doc.text(`School: ${event.school || 'Not specified'}`, 14, 50);
+  doc.text(`School: ${event.school || 'Not specified'}`, 14, 50, { maxWidth: 180 });
   doc.text(`Maximum Marks: ${event.maxMarks}`, 14, 60);
   doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 70);
   doc.text(`Total Judges: ${event.judges.length}`, 14, 80);
@@ -181,16 +182,29 @@ export const generateJudgeScoringSheets = (event: Event): void => {
   // Add scoring columns info if they exist
   if (scoringColumns.length > 0) {
     doc.text(`Additional Scoring Columns: ${scoringColumns.length}`, 14, 100);
-    scoringColumns.forEach((col, index) => {
+    let yOffset = 110;
+    for (let i = 0; i < scoringColumns.length; i++) {
       doc.setFontSize(12);
-      doc.text(`${index + 1}. ${col.name}`, 24, 110 + (index * 10));
-    });
+      
+      // Handle line wrapping for long column names
+      const textLines = doc.splitTextToSize(`${i + 1}. ${scoringColumns[i].name}`, 170);
+      doc.text(textLines, 24, yOffset);
+      yOffset += 10 * (textLines.length || 1);
+      
+      // Ensure we don't go off the page
+      if (yOffset > 270) {
+        doc.addPage();
+        yOffset = 20;
+      }
+    }
     doc.setFontSize(16);
   }
   
+  // Add content at the bottom part of the page, make sure it's visible
+  const contentStartY = Math.min(scoringColumns.length > 0 ? 130 + (scoringColumns.length * 10) : 130, 240);
   doc.setFontSize(12);
-  doc.text("This document contains individual scoring sheets for each judge.", 14, 130);
-  doc.text("Please distribute the respective pages to each judge.", 14, 140);
+  doc.text("This document contains individual scoring sheets for each judge.", 14, contentStartY);
+  doc.text("Please distribute the respective pages to each judge.", 14, contentStartY + 10);
   
   // For each judge, create a separate page with their scoring sheet
   event.judges.forEach((judge: Judge, index: number) => {
@@ -198,31 +212,29 @@ export const generateJudgeScoringSheets = (event: Event): void => {
     
     // Page header
     doc.setFontSize(16);
-    doc.text(`Judge Scoring Sheet: ${judge.name}`, 14, 20);
+    doc.text(`Judge Scoring Sheet: ${judge.name}`, 14, 20, { maxWidth: 180 });
     
     doc.setFontSize(12);
-    doc.text(`Event: ${event.name}`, 14, 30);
-    doc.text(`School: ${event.school || 'Not specified'}`, 14, 38);
+    doc.text(`Event: ${event.name}`, 14, 30, { maxWidth: 180 });
+    doc.text(`School: ${event.school || 'Not specified'}`, 14, 38, { maxWidth: 180 });
     doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 46);
     doc.text(`Maximum Marks: ${event.maxMarks}`, 14, 54);
     
-    // Create headers for the scoring table
-    let headers = [['Participant', 'Marks (out of ' + event.maxMarks + ')']];
+    // Create headers for the scoring table, with "Marks" at the end
+    const headers = [['Participant']];
     
     // Add additional column headers if they exist
     if (scoringColumns.length > 0) {
       headers[0].push(...scoringColumns.map(col => col.name));
     }
     
-    // Add remarks column at the end (after all columns)
-    headers[0].push('Remarks');
+    // Add marks column at the end
+    headers[0].push(`Marks (out of ${event.maxMarks})`);
     
     // Create data rows
     const data = event.students.map(student => {
-      const row = [
-        student.name, 
-        ''  // Empty cell for marks
-      ];
+      // Start with participant name
+      const row = [student.name];
       
       // Add empty cells for additional columns if they exist
       if (scoringColumns.length > 0) {
@@ -231,38 +243,39 @@ export const generateJudgeScoringSheets = (event: Event): void => {
         });
       }
       
-      // Add remarks column
+      // Add empty cell for marks column
       row.push('');
       
       return row;
     });
     
-    // Calculate column widths with updated proportions
+    // Calculate column widths with marks at the end
     const columnStyles: { [key: number]: { cellWidth: number } } = {
-      0: { cellWidth: 55 },  // Participant name column (slightly reduced)
-      1: { cellWidth: 25 },  // Marks column
+      0: { cellWidth: 50 },  // Participant name column
     };
     
-    // Set width for additional columns (make them wider)
+    // Set widths for additional columns to make them wider
     if (scoringColumns.length > 0) {
-      // Allocate more space for the round columns
-      const totalPageWidth = 170;
-      const participantColumnWidth = 55;
-      const marksColumnWidth = 25;
-      const remarksColumnWidth = 35;
+      // Calculate available width
+      const totalPageWidth = 180;  // Increased to use more of the page width
+      const participantColumnWidth = 50;
+      const marksColumnWidth = 30;
       
-      const remainingWidth = totalPageWidth - participantColumnWidth - marksColumnWidth - remarksColumnWidth;
-      const roundColumnWidth = Math.max(30, remainingWidth / scoringColumns.length);
+      // Distribute remaining width among scoring columns
+      const remainingWidth = totalPageWidth - participantColumnWidth - marksColumnWidth;
+      const columnCount = scoringColumns.length;
+      const scoringColumnWidth = Math.max(30, remainingWidth / columnCount);
       
+      // Set width for each scoring column
       scoringColumns.forEach((_, i) => {
-        columnStyles[i + 2] = { cellWidth: roundColumnWidth };
+        columnStyles[i + 1] = { cellWidth: scoringColumnWidth };
       });
       
-      // Set width for remarks column (last column)
-      columnStyles[2 + scoringColumns.length] = { cellWidth: remarksColumnWidth };
+      // Set width for marks column (last column)
+      columnStyles[1 + scoringColumns.length] = { cellWidth: marksColumnWidth };
     } else {
-      // No additional columns, just remarks
-      columnStyles[2] = { cellWidth: 90 };
+      // No additional columns, just marks
+      columnStyles[1] = { cellWidth: 130 };
     }
     
     autoTable(doc, {
@@ -276,7 +289,9 @@ export const generateJudgeScoringSheets = (event: Event): void => {
       columnStyles: columnStyles,
       rowPageBreak: 'auto',
       bodyStyles: { valign: 'middle' },
-      theme: 'grid'
+      theme: 'grid',
+      margin: { left: 14, right: 14 },  // Ensure margins are small enough to fit the page
+      tableWidth: 'auto'  // Ensure the table fits the page
     });
     
     // Add signature field
@@ -288,3 +303,4 @@ export const generateJudgeScoringSheets = (event: Event): void => {
   // Save PDF
   doc.save(`${event.name.replace(/\s+/g, '_')}_judge_scoring_sheets.pdf`);
 };
+
