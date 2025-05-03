@@ -41,7 +41,8 @@ export const calculateGeneralRanking = (
     }
   });
   
-  // Calculate ranks by judge - in General Ranking, same score gets same rank without skipping
+  // Calculate ranks by judge - using standard competition ranking (1224 ranking)
+  // where equal scores get equal ranks and the next rank is skipped
   const judgeRanks: { [judgeId: string]: { [studentId: string]: number } } = {};
   
   for (const judgeId of judges) {
@@ -58,7 +59,7 @@ export const calculateGeneralRanking = (
     
     judgeRanks[judgeId] = {};
     
-    // Group by scores to handle ties properly - same score gets same rank
+    // Group scores to handle ties
     const scoreGroups: { [score: number]: string[] } = {};
     scoreArray.forEach(item => {
       if (!scoreGroups[item.score]) {
@@ -67,9 +68,9 @@ export const calculateGeneralRanking = (
       scoreGroups[item.score].push(item.studentId);
     });
     
+    // Assign ranks with standard competition ranking (1, 2, 2, 4)
     let currentRank = 1;
     
-    // Assign ranks - same score gets same rank, next score gets next rank (no skips)
     Object.entries(scoreGroups)
       .sort(([scoreA], [scoreB]) => Number(scoreB) - Number(scoreA))
       .forEach(([_, studentIds]) => {
@@ -78,8 +79,8 @@ export const calculateGeneralRanking = (
           judgeRanks[judgeId][studentId] = currentRank;
         });
         
-        // Increment rank by 1 only, regardless of how many had the same score
-        currentRank += 1;
+        // Skip ranks equal to the number of students with the same score
+        currentRank += studentIds.length;
       });
   }
   
@@ -145,4 +146,3 @@ export const calculateGeneralRanking = (
   
   return results;
 };
-
