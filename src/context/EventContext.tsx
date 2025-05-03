@@ -21,6 +21,7 @@ interface EventContextType {
   setScore: (id: string, studentId: string, judgeId: string, value: number) => Promise<void>;
   setRankingMethod: (id: string, method: "spearman" | "general") => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
+  setScoringColumns: (id: string, columns: ScoringColumn[]) => Promise<void>;
 }
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
@@ -60,6 +61,21 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
           const formattedEvents: Event[] = [];
           
           for (const event of data) {
+            // Check if ranking_method exists in the database schema
+            let rankingMethod: "spearman" | "general" = "spearman"; // Default value
+            
+            try {
+              // Try to access ranking_method with type assertion
+              const eventAny = event as any;
+              if (eventAny.ranking_method && 
+                  (eventAny.ranking_method === "spearman" || 
+                   eventAny.ranking_method === "general")) {
+                rankingMethod = eventAny.ranking_method;
+              }
+            } catch (e) {
+              console.warn("Could not access ranking_method, using default value", e);
+            }
+            
             // Fetch students
             const { data: studentsData } = await supabase
               .from('students')
@@ -75,6 +91,12 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
             // Fetch scores
             const { data: scoresData } = await supabase
               .from('scores')
+              .select('*')
+              .eq('event_id', event.id);
+              
+            // Fetch scoring columns
+            const { data: columnsData } = await supabase
+              .from('scoring_columns')
               .select('*')
               .eq('event_id', event.id);
               
@@ -94,6 +116,14 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
               value: s.value
             })) : [];
             
+            const scoringColumns: ScoringColumn[] = columnsData 
+              ? columnsData.map((c: any) => ({
+                  id: c.id,
+                  name: c.name,
+                  order: c.order
+                })) 
+              : [];
+            
             formattedEvents.push({
               id: event.id,
               name: event.name,
@@ -103,7 +133,8 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
               judges,
               scores,
               createdAt: event.created_at,
-              rankingMethod: (event as any).ranking_method
+              rankingMethod,
+              scoringColumns,
             });
           }
           
@@ -142,20 +173,46 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
           throw new Error("User not authenticated");
         }
         
-        // Insert the event
-        const { error: insertError } = await supabase
-          .from('events')
-          .insert({
-            id,
-            name,
-            school,
-            max_marks: maxMarks,
-            user_id: userId,
-            ranking_method: rankingMethod
-          });
-
-        if (insertError) {
-          throw new Error(insertError.message);
+        // Check if ranking_method column exists in events table
+        try {
+          // First, try to create the event without ranking_method
+          const { error: insertError } = await supabase
+            .from('events')
+            .insert({
+              id,
+              name,
+              school,
+              max_marks: maxMarks,
+              user_id: userId,
+            });
+  
+          if (insertError) {
+            throw new Error(insertError.message);
+          }
+          
+          // Then try to update with ranking_method
+          try {
+            await supabase.rpc('update_ranking_method', { 
+              event_id: id, 
+              method: rankingMethod 
+            });
+          } catch (rpcError) {
+            console.warn("Could not update ranking_method using RPC, falling back to direct update", rpcError);
+            
+            // Try direct update as a fallback
+            const { error: updateError } = await supabase
+              .from('events')
+              .update({ ranking_method: rankingMethod })
+              .eq('id', id);
+              
+            if (updateError) {
+              console.warn("Could not update ranking_method directly:", updateError);
+              // Continue without setting ranking_method
+            }
+          }
+        } catch (err) {
+          console.error("Error creating event:", err);
+          throw err;
         }
 
         const newEvent: Event = {
@@ -168,6 +225,7 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
           scores: [],
           createdAt: new Date().toISOString(),
           rankingMethod,
+          scoringColumns: [],
         };
 
         setEvents(prevEvents => [newEvent, ...prevEvents]);
@@ -474,16 +532,32 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
     setError(null);
 
     try {
-      // Update the event with the new ranking method
-      const { error } = await supabase
-        .from('events')
-        .update({ ranking_method: method } as any) // Use type assertion to bypass TypeScript check
-        .eq('id', id);
-
-      if (error) {
-        throw new Error(error.message);
+      // Try to update using RPC first
+      try {
+        await supabase.rpc('update_ranking_method', { 
+          event_id: id, 
+          method 
+        });
+      } catch (rpcError) {
+        console.warn("Could not update ranking_method using RPC, falling back to direct update", rpcError);
+        
+        // Try direct update as a fallback
+        const { error } = await supabase
+          .from('events')
+          .update({ ranking_method: method } as any)
+          .eq('id', id);
+          
+        if (error) {
+          // If that fails too, create the column manually
+          if (error.message.includes("column") && error.message.includes("does not exist")) {
+            throw new Error("The ranking_method column does not exist in the events table. Please add it to your Supabase schema.");
+          } else {
+            throw new Error(error.message);
+          }
+        }
       }
 
+      // Update the local state
       setEvents(prevEvents =>
         prevEvents.map(event => (event.id === id ? { ...event, rankingMethod: method } : event))
       );
@@ -534,6 +608,67 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
     }
   }, [currentEventId]);
 
+  // Add function to handle scoring columns
+  const setScoringColumns = useCallback(async (id: string, columns: ScoringColumn[]) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Delete existing scoring columns
+      try {
+        const { error: deleteError } = await supabase
+          .from('scoring_columns')
+          .delete()
+          .eq('event_id', id);
+
+        if (deleteError) {
+          // If table doesn't exist, log warning but continue
+          console.warn("Could not delete scoring columns:", deleteError);
+        }
+      } catch (err) {
+        console.warn("Error deleting scoring columns:", err);
+      }
+
+      // Insert new scoring columns if there are any
+      if (columns.length > 0) {
+        try {
+          const supabaseColumns = columns.map(column => ({
+            id: column.id || uuidv4(),
+            name: column.name,
+            order: column.order,
+            event_id: id
+          }));
+
+          const { error: insertError } = await supabase
+            .from('scoring_columns')
+            .insert(supabaseColumns);
+
+          if (insertError) {
+            console.warn("Could not insert scoring columns:", insertError);
+            // Continue even if insert fails
+          }
+        } catch (err) {
+          console.warn("Error inserting scoring columns:", err);
+        }
+      }
+
+      // Update local state regardless of DB operations
+      setEvents(prevEvents =>
+        prevEvents.map(event => (event.id === id ? { ...event, scoringColumns: columns } : event))
+      );
+    } catch (err: any) {
+      console.error("Error setting scoring columns:", err);
+      setError(err.message);
+      toast({
+        title: "Error setting scoring columns",
+        description: err.message,
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   const value: EventContextType = {
     events,
     currentEvent,
@@ -551,6 +686,7 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
     setScore,
     setRankingMethod,
     deleteEvent,
+    setScoringColumns,
   };
 
   return (
@@ -571,4 +707,5 @@ const supabaseEventToEvent = (supabaseEvent: SupabaseEvent): Event => ({
   scores: [], // Fetch separately if needed
   createdAt: supabaseEvent.created_at,
   rankingMethod: supabaseEvent.ranking_method,
+  scoringColumns: [],
 });

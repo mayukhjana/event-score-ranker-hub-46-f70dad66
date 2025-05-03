@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -7,10 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, X, School } from 'lucide-react';
+import { Plus, X, School, Columns } from 'lucide-react';
 import { useEvent } from '@/context/EventContext';
 import { v4 as uuidv4 } from 'uuid';
-import { Student, Judge } from '@/types';
+import { Student, Judge, ScoringColumn } from '@/types';
 import {
   Select,
   SelectContent,
@@ -23,6 +22,12 @@ import {
   RadioGroupItem
 } from "@/components/ui/radio-group";
 import { generateJudgeScoringSheets } from '@/utils/pdfGenerator';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 const DEFAULT_SCHOOLS = ["St. Xavier's Collegiate School Kolkata"];
 
@@ -37,6 +42,7 @@ const Setup = () => {
     setMaxMarks,
     setStudents, 
     setJudges,
+    setScoringColumns,
     setRankingMethod,
     isLoading,
     error
@@ -54,6 +60,7 @@ const Setup = () => {
     { id: uuidv4(), name: '' }
   ]);
   const [localRankingMethod, setLocalRankingMethod] = useState<"spearman" | "general">("spearman");
+  const [localScoringColumns, setLocalScoringColumns] = useState<ScoringColumn[]>([]);
 
   // Show error toast if context has an error
   useEffect(() => {
@@ -83,6 +90,11 @@ const Setup = () => {
         : [{ id: uuidv4(), name: '' }]
       );
       setLocalRankingMethod(currentEvent.rankingMethod || "spearman");
+      setLocalScoringColumns(
+        currentEvent.scoringColumns && currentEvent.scoringColumns.length > 0
+        ? currentEvent.scoringColumns
+        : []
+      );
     }
   }, [currentEvent]);
 
@@ -134,6 +146,30 @@ const Setup = () => {
     );
   };
 
+  // Scoring columns functions
+  const addScoringColumn = () => {
+    const order = localScoringColumns.length > 0 
+      ? Math.max(...localScoringColumns.map(col => col.order)) + 1 
+      : 1;
+      
+    setLocalScoringColumns([
+      ...localScoringColumns, 
+      { id: uuidv4(), name: '', order }
+    ]);
+  };
+
+  const removeScoringColumn = (id: string) => {
+    setLocalScoringColumns(localScoringColumns.filter(column => column.id !== id));
+  };
+
+  const updateScoringColumn = (id: string, name: string) => {
+    setLocalScoringColumns(
+      localScoringColumns.map(column => 
+        column.id === id ? { ...column, name } : column
+      )
+    );
+  };
+
   const handleSchoolChange = (value: string) => {
     if (value === "custom") {
       setShowCustomSchoolInput(true);
@@ -172,7 +208,8 @@ const Setup = () => {
       judges: localJudges,
       scores: [], // Empty scores since this is just for scoring sheets
       createdAt: new Date().toISOString(),
-      rankingMethod: localRankingMethod
+      rankingMethod: localRankingMethod,
+      scoringColumns: localScoringColumns
     };
 
     try {
@@ -248,6 +285,17 @@ const Setup = () => {
       return;
     }
 
+    // Validate scoring columns
+    const emptyColumns = localScoringColumns.filter(c => !c.name.trim());
+    if (emptyColumns.length > 0) {
+      toast({
+        title: "Missing column names",
+        description: "Please fill in names for all scoring columns",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       // Save data to context
       if (currentEvent) {
@@ -258,11 +306,13 @@ const Setup = () => {
         await setStudents(currentEvent.id, localStudents);
         await setJudges(currentEvent.id, localJudges);
         await setRankingMethod(currentEvent.id, localRankingMethod);
+        await setScoringColumns(currentEvent.id, localScoringColumns);
       } else {
         // Create new event if none exists
         const id = await createEvent(localEventName, finalSchool, maxMarks, localRankingMethod);
         await setStudents(id, localStudents);
         await setJudges(id, localJudges);
+        await setScoringColumns(id, localScoringColumns);
       }
       
       toast({
@@ -462,6 +512,68 @@ const Setup = () => {
             </div>
           </CardContent>
         </Card>
+
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="scoringColumns">
+            <Card>
+              <CardHeader className="p-0 border-b-0">
+                <AccordionTrigger className="px-6 py-4 hover:no-underline">
+                  <CardTitle className="flex items-center">
+                    <Columns className="mr-2 h-5 w-5" />
+                    <span>Additional Scoring Columns</span>
+                    <span className="ml-2 text-sm text-muted-foreground">
+                      (Optional)
+                    </span>
+                  </CardTitle>
+                </AccordionTrigger>
+              </CardHeader>
+              <AccordionContent>
+                <CardContent>
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Add custom columns that will appear in the scoring sheets and results.
+                      These can be used for rounds, categories, or any additional scoring criteria.
+                    </p>
+                    
+                    {localScoringColumns.map((column, index) => (
+                      <div key={column.id} className="flex gap-3 items-center">
+                        <div className="flex-grow">
+                          <Label htmlFor={`column-${column.id}`}>
+                            Column {index + 1}
+                          </Label>
+                          <Input
+                            id={`column-${column.id}`}
+                            placeholder="e.g., Round 1, Creativity, Technique"
+                            value={column.name}
+                            onChange={(e) => updateScoringColumn(column.id!, e.target.value)}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="mt-7"
+                          onClick={() => removeScoringColumn(column.id!)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={addScoringColumn}
+                    >
+                      <Plus className="mr-2 h-4 w-4" /> Add Column
+                    </Button>
+                  </div>
+                </CardContent>
+              </AccordionContent>
+            </Card>
+          </AccordionItem>
+        </Accordion>
 
         <CardFooter className="flex justify-end space-x-4 pt-6">
           <Button 

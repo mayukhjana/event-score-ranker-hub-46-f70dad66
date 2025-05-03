@@ -15,6 +15,12 @@ export interface Score {
   value: number;
 }
 
+export interface ScoringColumn {
+  id?: string;
+  name: string;
+  order: number;
+}
+
 export interface Event {
   id: string;
   name: string;
@@ -25,6 +31,7 @@ export interface Event {
   scores: Score[];
   createdAt: string;
   rankingMethod?: "spearman" | "general";
+  scoringColumns?: ScoringColumn[];
 }
 
 export interface EventsState {
@@ -60,5 +67,12 @@ export interface SupabaseScore {
   value: number;
   student_id: string;
   judge_id: string;
+  event_id: string;
+}
+
+export interface SupabaseScoringColumn {
+  id: string;
+  name: string;
+  order: number;
   event_id: string;
 }

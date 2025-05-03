@@ -1,7 +1,7 @@
 
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
-import { Event, Judge } from "@/types";
+import { Event, Judge, ScoringColumn } from "@/types";
 import { calculateStudentScores } from "./scoreCalculations";
 import { calculateGeneralRanking } from "./generalRankingMethod";
 
@@ -50,12 +50,18 @@ export const generatePDF = async (event: Event): Promise<void> => {
   const judgeNames = event.judges.map(judge => judge.name).join(", ");
   doc.text(`Judges: ${judgeNames}`, 14, 54);
   
+  // Create header array with additional columns if they exist
+  const additionalColumnHeaders = event.scoringColumns && event.scoringColumns.length > 0
+    ? event.scoringColumns.sort((a, b) => a.order - b.order).map(col => col.name)
+    : [];
+
   // Create ranking table with judge-specific ranks
   const headers = [
     [
       'Participant', 
       ...event.judges.map(judge => `${judge.name}`),
       ...event.judges.map(judge => `R(${judge.name})`),
+      ...additionalColumnHeaders,
       'Sum of Ranks',
       'Final Rank'
     ]
@@ -79,6 +85,13 @@ export const generatePDF = async (event: Event): Promise<void> => {
       const judgeRank = result.judgeRanks.find(jr => jr.judgeId === judge.id);
       rowData.push(judgeRank ? judgeRank.rank.toFixed(1) : '-');
     });
+    
+    // Add empty cells for additional columns (to be filled manually or in future versions)
+    if (event.scoringColumns) {
+      event.scoringColumns.forEach(() => {
+        rowData.push('-');
+      });
+    }
     
     // Add sum of ranks and final rank
     rowData.push(result.totalRank.toFixed(1));
@@ -107,7 +120,7 @@ export const generatePDF = async (event: Event): Promise<void> => {
   doc.setFontSize(12);
   doc.text(`Maximum Marks: ${event.maxMarks || 100}`, 14, 28);
   
-  const scoreHeaders = [['Participant', ...event.judges.map(j => j.name)]];
+  const scoreHeaders = [['Participant', ...event.judges.map(j => j.name), ...additionalColumnHeaders]];
   
   const scoreData = event.students.map(student => {
     const row = [student.name];
@@ -119,6 +132,13 @@ export const generatePDF = async (event: Event): Promise<void> => {
       
       row.push(score ? score.value.toString() : 'nil');
     });
+    
+    // Add empty cells for additional columns
+    if (event.scoringColumns) {
+      event.scoringColumns.forEach(() => {
+        row.push('-');
+      });
+    }
     
     return row;
   });
@@ -143,6 +163,11 @@ export const generateJudgeScoringSheets = (event: Event): void => {
   // Create one PDF with multiple pages - one page per judge
   const doc = new jsPDF();
   
+  // Get the sorted scoring columns if they exist
+  const scoringColumns = event.scoringColumns && event.scoringColumns.length > 0
+    ? [...event.scoringColumns].sort((a, b) => a.order - b.order)
+    : [];
+  
   // First add a cover page
   doc.setFontSize(24);
   doc.text(`Scoring Sheets: ${event.name}`, 14, 30, { align: 'left' });
@@ -154,9 +179,19 @@ export const generateJudgeScoringSheets = (event: Event): void => {
   doc.text(`Total Judges: ${event.judges.length}`, 14, 80);
   doc.text(`Total Participants: ${event.students.length}`, 14, 90);
   
+  // Add scoring columns info if they exist
+  if (scoringColumns.length > 0) {
+    doc.text(`Additional Scoring Columns: ${scoringColumns.length}`, 14, 100);
+    scoringColumns.forEach((col, index) => {
+      doc.setFontSize(12);
+      doc.text(`${index + 1}. ${col.name}`, 24, 110 + (index * 10));
+    });
+    doc.setFontSize(16);
+  }
+  
   doc.setFontSize(12);
-  doc.text("This document contains individual scoring sheets for each judge.", 14, 110);
-  doc.text("Please distribute the respective pages to each judge.", 14, 120);
+  doc.text("This document contains individual scoring sheets for each judge.", 14, 130);
+  doc.text("Please distribute the respective pages to each judge.", 14, 140);
   
   // For each judge, create a separate page with their scoring sheet
   event.judges.forEach((judge: Judge, index: number) => {
@@ -172,14 +207,52 @@ export const generateJudgeScoringSheets = (event: Event): void => {
     doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 46);
     doc.text(`Maximum Marks: ${event.maxMarks}`, 14, 54);
     
-    // Create scoring table
+    // Create headers for the scoring table
     const headers = [['Participant', 'Marks (out of ' + event.maxMarks + ')', 'Remarks']];
     
-    const data = event.students.map(student => [
-      student.name,
-      '', // Empty cell for marks
-      ''  // Empty cell for remarks
-    ]);
+    // Add additional column headers if they exist
+    if (scoringColumns.length > 0) {
+      headers[0].splice(2, 0, ...scoringColumns.map(col => col.name));
+    }
+    
+    // Create data rows
+    const data = event.students.map(student => {
+      const row = [
+        student.name, 
+        ''  // Empty cell for marks
+      ];
+      
+      // Add empty cells for additional columns if they exist
+      if (scoringColumns.length > 0) {
+        scoringColumns.forEach(() => {
+          row.push(''); // Empty cell for each additional column
+        });
+      }
+      
+      // Add remarks column
+      row.push('');
+      
+      return row;
+    });
+    
+    // Calculate column widths
+    const columnStyles: { [key: number]: { cellWidth: number } } = {
+      0: { cellWidth: 60 },  // Participant name column
+      1: { cellWidth: 25 },  // Marks column
+    };
+    
+    // Set width for additional columns
+    if (scoringColumns.length > 0) {
+      const additionalColWidth = Math.min(25, (160 - 60 - 25 - 40) / scoringColumns.length);
+      scoringColumns.forEach((_, i) => {
+        columnStyles[i + 2] = { cellWidth: additionalColWidth };
+      });
+      // Set width for remarks column (last column)
+      columnStyles[2 + scoringColumns.length] = { cellWidth: 40 };
+    } else {
+      // No additional columns, just remarks
+      columnStyles[2] = { cellWidth: 90 };
+    }
     
     autoTable(doc, {
       head: headers,
@@ -189,11 +262,7 @@ export const generateJudgeScoringSheets = (event: Event): void => {
         fillColor: [59, 130, 246],
         textColor: 255
       },
-      columnStyles: {
-        0: { cellWidth: 60 },
-        1: { cellWidth: 40 },
-        2: { cellWidth: 90 },
-      },
+      columnStyles: columnStyles,
       rowPageBreak: 'auto',
       bodyStyles: { valign: 'middle' },
       theme: 'grid'
@@ -202,7 +271,7 @@ export const generateJudgeScoringSheets = (event: Event): void => {
     // Add signature field
     doc.setFontSize(11);
     doc.text('Judge Signature: _______________________', 14, doc.internal.pageSize.height - 25);
-    doc.text('Page ' + (index + 1) + ' of ' + event.judges.length, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
+    doc.text(`Page ${index + 1} of ${event.judges.length}`, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
   });
 
   // Save PDF
