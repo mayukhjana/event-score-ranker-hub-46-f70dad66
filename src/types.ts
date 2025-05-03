@@ -39,6 +39,7 @@ export interface EventsState {
   currentEventId: string | null;
 }
 
+// Define a more comprehensive SupabaseEvent interface to handle the ranking_method field
 export interface SupabaseEvent {
   id: string;
   name: string;

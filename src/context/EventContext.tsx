@@ -208,13 +208,16 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
           } catch (rpcError) {
             console.warn("Could not update ranking_method using RPC, falling back to direct update", rpcError);
             
-            // Fix for TS2345 error - create a custom update object and apply it
-            const updateObj = { ranking_method: rankingMethod };
+            // Create a properly typed custom object for the update
+            // We need to use type assertion since we can't modify the types.ts file
+            const updateData = {
+              ranking_method: rankingMethod
+            };
             
-            // Use more explicit type assertion approach
+            // Use the generic update method with type assertion
             const { error: updateError } = await supabase
               .from('events')
-              .update(updateObj as any)
+              .update(updateData as any)
               .eq('id', id);
               
             if (updateError) {
@@ -553,13 +556,15 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
       } catch (rpcError) {
         console.warn("Could not update ranking_method using RPC, falling back to direct update", rpcError);
         
-        // Fix for TS2345 error - create a custom update object and apply it
-        const updateObj = { ranking_method: method };
+        // Create a properly typed custom object for the update
+        const updateData = {
+          ranking_method: method
+        };
         
-        // Use more explicit type assertion approach
+        // Use the generic update method with type assertion
         const { error } = await supabase
           .from('events')
-          .update(updateObj as any)
+          .update(updateData as any)
           .eq('id', id);
           
         if (error) {
