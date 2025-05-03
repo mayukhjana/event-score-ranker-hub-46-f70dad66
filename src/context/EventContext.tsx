@@ -208,15 +208,13 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
           } catch (rpcError) {
             console.warn("Could not update ranking_method using RPC, falling back to direct update", rpcError);
             
-            // Fix for TS2345 error - create a custom type for the update
-            interface CustomEventUpdate {
-              ranking_method: string;
-            }
+            // Fix for TS2345 error - create a custom update object and apply it
+            const updateObj = { ranking_method: rankingMethod };
             
-            // Use explicit casting to bypass strict typing
+            // Use more explicit type assertion approach
             const { error: updateError } = await supabase
               .from('events')
-              .update(({ ranking_method: rankingMethod } as unknown) as any)
+              .update(updateObj as any)
               .eq('id', id);
               
             if (updateError) {
@@ -555,10 +553,13 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
       } catch (rpcError) {
         console.warn("Could not update ranking_method using RPC, falling back to direct update", rpcError);
         
-        // Fix for TS2345 error - use explicit casting to bypass strict typing
+        // Fix for TS2345 error - create a custom update object and apply it
+        const updateObj = { ranking_method: method };
+        
+        // Use more explicit type assertion approach
         const { error } = await supabase
           .from('events')
-          .update(({ ranking_method: method } as unknown) as any)
+          .update(updateObj as any)
           .eq('id', id);
           
         if (error) {
