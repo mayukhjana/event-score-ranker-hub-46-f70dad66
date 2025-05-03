@@ -8,7 +8,7 @@ import { useEvent } from '@/context/EventContext';
 import { formatDistanceToNow } from 'date-fns';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { FileText, Plus, Trash2, Edit, File } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { generatePDF } from '@/utils/pdfGenerator';
 
 const Index = () => {
@@ -16,21 +16,28 @@ const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const handleCreateEvent = () => {
-    createEvent("New Event", "", 100, "spearman").then((eventId) => {
+  const handleCreateEvent = async () => {
+    try {
+      const eventId = await createEvent("New Event", "", 100);
       navigate(`/setup`);
-    });
+    } catch (error) {
+      console.error("Failed to create event:", error);
+    }
   };
 
-  const handleDeleteEvent = (id: string, e: React.MouseEvent) => {
+  const handleDeleteEvent = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (confirm("Are you sure you want to delete this event? All data will be lost.")) {
-      deleteEvent?.(id);
-      toast({
-        title: "Event deleted",
-        description: "The event has been deleted successfully",
-      });
+      try {
+        await deleteEvent(id);
+        toast({
+          title: "Event deleted",
+          description: "The event has been deleted successfully",
+        });
+      } catch (error) {
+        console.error("Failed to delete event:", error);
+      }
     }
   };
 

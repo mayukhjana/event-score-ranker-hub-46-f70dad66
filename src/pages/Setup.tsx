@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,7 @@ import {
   RadioGroup,
   RadioGroupItem
 } from "@/components/ui/radio-group";
+import { generateJudgeScoringSheets } from '@/utils/pdfGenerator';
 
 const DEFAULT_SCHOOLS = ["St. Xavier's Collegiate School Kolkata"];
 
@@ -35,7 +37,9 @@ const Setup = () => {
     setMaxMarks,
     setStudents, 
     setJudges,
-    setRankingMethod
+    setRankingMethod,
+    isLoading,
+    error
   } = useEvent();
   
   const [localEventName, setLocalEventName] = useState("");
@@ -50,6 +54,17 @@ const Setup = () => {
     { id: uuidv4(), name: '' }
   ]);
   const [localRankingMethod, setLocalRankingMethod] = useState<"spearman" | "general">("spearman");
+
+  // Show error toast if context has an error
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Error",
+        description: error,
+        variant: "destructive"
+      });
+    }
+  }, [error, toast]);
 
   // Load current event data when available
   useEffect(() => {
@@ -125,6 +140,54 @@ const Setup = () => {
     } else {
       setShowCustomSchoolInput(false);
       setLocalSchool(value);
+    }
+  };
+
+  const generateScoringSheets = () => {
+    // Validate that we have at least one student and one judge
+    if (localStudents.some(s => !s.name.trim())) {
+      toast({
+        title: "Missing participant names",
+        description: "Please fill in names for all participants",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (localJudges.some(j => !j.name.trim())) {
+      toast({
+        title: "Missing judge names",
+        description: "Please fill in names for all judges",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const mockEvent = {
+      id: currentEvent?.id || uuidv4(),
+      name: localEventName || "Unnamed Event",
+      school: showCustomSchoolInput ? customSchool : localSchool,
+      maxMarks: parseInt(localMaxMarks) || 100,
+      students: localStudents,
+      judges: localJudges,
+      scores: [], // Empty scores since this is just for scoring sheets
+      createdAt: new Date().toISOString(),
+      rankingMethod: localRankingMethod
+    };
+
+    try {
+      generateJudgeScoringSheets(mockEvent);
+      toast({
+        title: "Scoring Sheets Generated",
+        description: "Judge scoring sheets have been generated and downloaded",
+      });
+    } catch (error) {
+      console.error("Error generating scoring sheets:", error);
+      toast({
+        title: "Generation Failed",
+        description: "There was an error generating scoring sheets",
+        variant: "destructive"
+      });
     }
   };
 
@@ -208,11 +271,11 @@ const Setup = () => {
       });
       
       navigate('/scoring');
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving event:", error);
       toast({
         title: "Error saving event",
-        description: "An error occurred while saving your event. Please try again.",
+        description: error.message || "An error occurred while saving your event. Please try again.",
         variant: "destructive"
       });
     }
@@ -401,11 +464,19 @@ const Setup = () => {
         </Card>
 
         <CardFooter className="flex justify-end space-x-4 pt-6">
-          <Button type="button" variant="outline" onClick={() => navigate('/')}>
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={generateScoringSheets}
+            disabled={isLoading}
+          >
+            Generate Scoring Sheets
+          </Button>
+          <Button type="button" variant="outline" onClick={() => navigate('/')} disabled={isLoading}>
             Cancel
           </Button>
-          <Button type="submit">
-            Save and Continue
+          <Button type="submit" disabled={isLoading}>
+            {isLoading ? "Saving..." : "Save and Continue"}
           </Button>
         </CardFooter>
       </form>

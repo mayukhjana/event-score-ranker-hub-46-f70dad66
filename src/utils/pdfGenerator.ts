@@ -1,6 +1,7 @@
+
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
-import { Event } from "@/types";
+import { Event, Judge } from "@/types";
 import { calculateStudentScores } from "./scoreCalculations";
 import { calculateGeneralRanking } from "./generalRankingMethod";
 
@@ -135,4 +136,75 @@ export const generatePDF = async (event: Event): Promise<void> => {
 
   // Save PDF
   doc.save(`${event.name.replace(/\s+/g, '_')}_results.pdf`);
+};
+
+// New function to generate individual scoring sheets for each judge
+export const generateJudgeScoringSheets = (event: Event): void => {
+  // Create one PDF with multiple pages - one page per judge
+  const doc = new jsPDF();
+  
+  // First add a cover page
+  doc.setFontSize(24);
+  doc.text(`Scoring Sheets: ${event.name}`, 14, 30, { align: 'left' });
+  
+  doc.setFontSize(16);
+  doc.text(`School: ${event.school || 'Not specified'}`, 14, 50);
+  doc.text(`Maximum Marks: ${event.maxMarks}`, 14, 60);
+  doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 70);
+  doc.text(`Total Judges: ${event.judges.length}`, 14, 80);
+  doc.text(`Total Participants: ${event.students.length}`, 14, 90);
+  
+  doc.setFontSize(12);
+  doc.text("This document contains individual scoring sheets for each judge.", 14, 110);
+  doc.text("Please distribute the respective pages to each judge.", 14, 120);
+  
+  // For each judge, create a separate page with their scoring sheet
+  event.judges.forEach((judge: Judge, index: number) => {
+    doc.addPage();
+    
+    // Page header
+    doc.setFontSize(16);
+    doc.text(`Judge Scoring Sheet: ${judge.name}`, 14, 20);
+    
+    doc.setFontSize(12);
+    doc.text(`Event: ${event.name}`, 14, 30);
+    doc.text(`School: ${event.school || 'Not specified'}`, 14, 38);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 46);
+    doc.text(`Maximum Marks: ${event.maxMarks}`, 14, 54);
+    
+    // Create scoring table
+    const headers = [['Participant', 'Marks (out of ' + event.maxMarks + ')', 'Remarks']];
+    
+    const data = event.students.map(student => [
+      student.name,
+      '', // Empty cell for marks
+      ''  // Empty cell for remarks
+    ]);
+    
+    autoTable(doc, {
+      head: headers,
+      body: data,
+      startY: 65,
+      headStyles: { 
+        fillColor: [59, 130, 246],
+        textColor: 255
+      },
+      columnStyles: {
+        0: { cellWidth: 60 },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 90 },
+      },
+      rowPageBreak: 'auto',
+      bodyStyles: { valign: 'middle' },
+      theme: 'grid'
+    });
+    
+    // Add signature field
+    doc.setFontSize(11);
+    doc.text('Judge Signature: _______________________', 14, doc.internal.pageSize.height - 25);
+    doc.text('Page ' + (index + 1) + ' of ' + event.judges.length, doc.internal.pageSize.width - 40, doc.internal.pageSize.height - 10);
+  });
+
+  // Save PDF
+  doc.save(`${event.name.replace(/\s+/g, '_')}_judge_scoring_sheets.pdf`);
 };

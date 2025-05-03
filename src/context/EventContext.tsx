@@ -1,7 +1,9 @@
+
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Event, Student, Judge, Score, SupabaseEvent, SupabaseStudent, SupabaseJudge, SupabaseScore } from "@/types";
 import { v4 as uuidv4 } from "uuid";
+import { toast } from "@/hooks/use-toast";
 
 interface EventContextType {
   events: Event[];
@@ -55,9 +57,61 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
           throw new Error(error.message);
         }
 
-        const formattedEvents = data ? data.map((item: any) => supabaseEventToEvent(item as SupabaseEvent)) : [];
-        setEvents(formattedEvents);
+        if (data) {
+          const formattedEvents: Event[] = [];
+          
+          for (const event of data) {
+            // Fetch students
+            const { data: studentsData } = await supabase
+              .from('students')
+              .select('*')
+              .eq('event_id', event.id);
+            
+            // Fetch judges
+            const { data: judgesData } = await supabase
+              .from('judges')
+              .select('*')
+              .eq('event_id', event.id);
+            
+            // Fetch scores
+            const { data: scoresData } = await supabase
+              .from('scores')
+              .select('*')
+              .eq('event_id', event.id);
+              
+            const students: Student[] = studentsData ? studentsData.map((s: any) => ({
+              id: s.id,
+              name: s.name
+            })) : [];
+            
+            const judges: Judge[] = judgesData ? judgesData.map((j: any) => ({
+              id: j.id,
+              name: j.name
+            })) : [];
+            
+            const scores: Score[] = scoresData ? scoresData.map((s: any) => ({
+              studentId: s.student_id,
+              judgeId: s.judge_id,
+              value: s.value
+            })) : [];
+            
+            formattedEvents.push({
+              id: event.id,
+              name: event.name,
+              school: event.school,
+              maxMarks: event.max_marks,
+              students,
+              judges,
+              scores,
+              createdAt: event.created_at,
+              rankingMethod: event.ranking_method
+            });
+          }
+          
+          setEvents(formattedEvents);
+        }
       } catch (err: any) {
+        console.error("Error fetching events:", err);
         setError(err.message);
       } finally {
         setIsLoading(false);
@@ -77,21 +131,32 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
 
       try {
         // Get current user ID
-        const { data: userData } = await supabase.auth.getUser();
-        const userId = userData.user?.id || 'anonymous';
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        
+        if (userError) {
+          throw new Error(userError.message);
+        }
+        
+        const userId = userData.user?.id;
+        
+        if (!userId) {
+          throw new Error("User not authenticated");
+        }
         
         // Insert the event
-        const { error } = await supabase.from('events').insert({
-          id,
-          name,
-          school,
-          max_marks: maxMarks,
-          ranking_method: rankingMethod,
-          user_id: userId
-        });
+        const { error: insertError } = await supabase
+          .from('events')
+          .insert({
+            id,
+            name,
+            school,
+            max_marks: maxMarks,
+            user_id: userId,
+            ranking_method: rankingMethod
+          });
 
-        if (error) {
-          throw new Error(error.message);
+        if (insertError) {
+          throw new Error(insertError.message);
         }
 
         const newEvent: Event = {
@@ -103,13 +168,20 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
           judges: [],
           scores: [],
           createdAt: new Date().toISOString(),
-          rankingMethod: rankingMethod,
+          rankingMethod,
         };
 
         setEvents(prevEvents => [newEvent, ...prevEvents]);
+        setCurrentEventId(id);
         return id;
       } catch (err: any) {
+        console.error("Error creating event:", err);
         setError(err.message);
+        toast({
+          title: "Error creating event",
+          description: err.message,
+          variant: "destructive"
+        });
         throw err;
       } finally {
         setIsLoading(false);
@@ -360,31 +432,37 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
           }
         }
 
-        // Fetch the updated scores for the event
-        const { data: updatedScores, error: fetchError } = await supabase
-          .from('scores')
-          .select('*')
-          .eq('event_id', id);
-
-        if (fetchError) {
-          throw new Error(fetchError.message);
-        }
-
-        if (updatedScores) {
-          // Convert Supabase scores to the app's Score type
-          const formattedScores: Score[] = updatedScores.map((score: any) => ({
-            studentId: score.student_id,
-            judgeId: score.judge_id,
-            value: score.value,
-          }));
-
-          // Update the local state with the formatted scores
-          setEvents(prevEvents =>
-            prevEvents.map(event => (event.id === id ? { ...event, scores: formattedScores } : event))
-          );
-        }
+        // Update the local state
+        setEvents(prevEvents => 
+          prevEvents.map(event => {
+            if (event.id === id) {
+              // Find if score already exists
+              const existingScoreIndex = event.scores.findIndex(
+                s => s.studentId === studentId && s.judgeId === judgeId
+              );
+              
+              // Create new scores array with updated or added score
+              let updatedScores;
+              if (existingScoreIndex !== -1) {
+                updatedScores = [...event.scores];
+                updatedScores[existingScoreIndex] = { studentId, judgeId, value };
+              } else {
+                updatedScores = [...event.scores, { studentId, judgeId, value }];
+              }
+              
+              return { ...event, scores: updatedScores };
+            }
+            return event;
+          })
+        );
       } catch (err: any) {
+        console.error("Error setting score:", err);
         setError(err.message);
+        toast({
+          title: "Error setting score",
+          description: err.message,
+          variant: "destructive"
+        });
       } finally {
         setIsLoading(false);
       }
@@ -411,7 +489,13 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
         prevEvents.map(event => (event.id === id ? { ...event, rankingMethod: method } : event))
       );
     } catch (err: any) {
+      console.error("Error setting ranking method:", err);
       setError(err.message);
+      toast({
+        title: "Error setting ranking method",
+        description: err.message,
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -439,7 +523,13 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
         setCurrentEventId(null);
       }
     } catch (err: any) {
+      console.error("Error deleting event:", err);
       setError(err.message);
+      toast({
+        title: "Error deleting event",
+        description: err.message,
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
