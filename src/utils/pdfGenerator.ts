@@ -1,4 +1,3 @@
-
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
 import { Event, Judge, ScoringColumn } from "@/types";
@@ -158,7 +157,7 @@ export const generatePDF = async (event: Event): Promise<void> => {
   doc.save(`${event.name.replace(/\s+/g, '_')}_results.pdf`);
 };
 
-// New function to generate individual scoring sheets for each judge
+// Updated function to generate individual scoring sheets for each judge
 export const generateJudgeScoringSheets = (event: Event): void => {
   // Create one PDF with multiple pages - one page per judge
   const doc = new jsPDF();
@@ -208,12 +207,15 @@ export const generateJudgeScoringSheets = (event: Event): void => {
     doc.text(`Maximum Marks: ${event.maxMarks}`, 14, 54);
     
     // Create headers for the scoring table
-    const headers = [['Participant', 'Marks (out of ' + event.maxMarks + ')', 'Remarks']];
+    let headers = [['Participant', 'Marks (out of ' + event.maxMarks + ')']];
     
     // Add additional column headers if they exist
     if (scoringColumns.length > 0) {
-      headers[0].splice(2, 0, ...scoringColumns.map(col => col.name));
+      headers[0].push(...scoringColumns.map(col => col.name));
     }
+    
+    // Add remarks column at the end (after all columns)
+    headers[0].push('Remarks');
     
     // Create data rows
     const data = event.students.map(student => {
@@ -235,20 +237,29 @@ export const generateJudgeScoringSheets = (event: Event): void => {
       return row;
     });
     
-    // Calculate column widths
+    // Calculate column widths with updated proportions
     const columnStyles: { [key: number]: { cellWidth: number } } = {
-      0: { cellWidth: 60 },  // Participant name column
+      0: { cellWidth: 55 },  // Participant name column (slightly reduced)
       1: { cellWidth: 25 },  // Marks column
     };
     
-    // Set width for additional columns
+    // Set width for additional columns (make them wider)
     if (scoringColumns.length > 0) {
-      const additionalColWidth = Math.min(25, (160 - 60 - 25 - 40) / scoringColumns.length);
+      // Allocate more space for the round columns
+      const totalPageWidth = 170;
+      const participantColumnWidth = 55;
+      const marksColumnWidth = 25;
+      const remarksColumnWidth = 35;
+      
+      const remainingWidth = totalPageWidth - participantColumnWidth - marksColumnWidth - remarksColumnWidth;
+      const roundColumnWidth = Math.max(30, remainingWidth / scoringColumns.length);
+      
       scoringColumns.forEach((_, i) => {
-        columnStyles[i + 2] = { cellWidth: additionalColWidth };
+        columnStyles[i + 2] = { cellWidth: roundColumnWidth };
       });
+      
       // Set width for remarks column (last column)
-      columnStyles[2 + scoringColumns.length] = { cellWidth: 40 };
+      columnStyles[2 + scoringColumns.length] = { cellWidth: remarksColumnWidth };
     } else {
       // No additional columns, just remarks
       columnStyles[2] = { cellWidth: 90 };
