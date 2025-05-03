@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -8,6 +7,12 @@ import {
 } from "@/types";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "@/hooks/use-toast";
+
+// Define type for RPC parameters to fix TypeScript errors
+interface UpdateRankingMethodParams {
+  event_id: string;
+  method: "spearman" | "general";
+}
 
 interface EventContextType {
   events: Event[];
@@ -196,39 +201,11 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
             school,
             max_marks: maxMarks,
             user_id: userId,
+            ranking_method: rankingMethod // Add ranking_method directly to the insert
           });
 
         if (insertError) {
           throw new Error(insertError.message);
-        }
-        
-        // Then try to update with ranking_method
-        try {
-          // Use explicit type for the parameters object to avoid 'never' type errors
-          const rpcParams: { event_id: string; method: "spearman" | "general" } = { 
-            event_id: id, 
-            method: rankingMethod 
-          };
-          
-          await supabase.rpc('update_ranking_method', rpcParams);
-        } catch (rpcError) {
-          console.warn("Could not update ranking_method using RPC, falling back to direct update", rpcError);
-          
-          // Use a type that matches the database schema
-          const updateData: SupabaseEventUpdate = {
-            ranking_method: rankingMethod
-          };
-          
-          // Use the typed update method
-          const { error: updateError } = await supabase
-            .from('events')
-            .update(updateData)
-            .eq('id', id);
-              
-          if (updateError) {
-            console.warn("Could not update ranking_method directly:", updateError);
-            // Continue without setting ranking_method
-          }
         }
 
         const newEvent: Event = {
@@ -548,37 +525,14 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
     setError(null);
 
     try {
-      // Try to update using RPC first
-      try {
-        // Use explicit type for the parameters object to avoid 'never' type errors
-        const rpcParams: { event_id: string; method: "spearman" | "general" } = { 
-          event_id: id, 
-          method 
-        };
-        
-        await supabase.rpc('update_ranking_method', rpcParams);
-      } catch (rpcError) {
-        console.warn("Could not update ranking_method using RPC, falling back to direct update", rpcError);
-        
-        // Use a type that matches the database schema
-        const updateData: SupabaseEventUpdate = {
-          ranking_method: method
-        };
-        
-        // Use the typed update method
-        const { error } = await supabase
-          .from('events')
-          .update(updateData)
-          .eq('id', id);
+      // Update directly without using RPC
+      const { error } = await supabase
+        .from('events')
+        .update({ ranking_method: method })
+        .eq('id', id);
           
-        if (error) {
-          // If that fails too, create the column manually
-          if (error.message.includes("column") && error.message.includes("does not exist")) {
-            throw new Error("The ranking_method column does not exist in the events table. Please add it to your Supabase schema.");
-          } else {
-            throw new Error(error.message);
-          }
-        }
+      if (error) {
+        throw new Error(error.message);
       }
 
       // Update the local state
