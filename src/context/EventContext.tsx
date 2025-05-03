@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Event, Student, Judge, Score, SupabaseEvent, SupabaseStudent, SupabaseJudge, SupabaseScore } from "@/types";
@@ -398,10 +397,10 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
     setError(null);
 
     try {
-      // Check if the ranking_method column exists in the events table
+      // Update the event with the new ranking method
       const { error } = await supabase
         .from('events')
-        .update({ ranking_method: method })
+        .update({ ranking_method: method } as any) // Use type assertion to bypass TypeScript check
         .eq('id', id);
 
       if (error) {
