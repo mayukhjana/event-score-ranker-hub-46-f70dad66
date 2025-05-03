@@ -160,7 +160,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      update_ranking_method: {
+        Args: { event_id: string; method: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
