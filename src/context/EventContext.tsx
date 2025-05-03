@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -203,10 +204,13 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
         
         // Then try to update with ranking_method
         try {
-          await supabase.rpc('update_ranking_method', { 
+          // Use explicit type for the parameters object to avoid 'never' type errors
+          const rpcParams: { event_id: string; method: "spearman" | "general" } = { 
             event_id: id, 
             method: rankingMethod 
-          });
+          };
+          
+          await supabase.rpc('update_ranking_method', rpcParams);
         } catch (rpcError) {
           console.warn("Could not update ranking_method using RPC, falling back to direct update", rpcError);
           
@@ -546,10 +550,13 @@ export const EventProvider: React.FC<EventProviderProps> = ({ children }) => {
     try {
       // Try to update using RPC first
       try {
-        await supabase.rpc('update_ranking_method', { 
+        // Use explicit type for the parameters object to avoid 'never' type errors
+        const rpcParams: { event_id: string; method: "spearman" | "general" } = { 
           event_id: id, 
           method 
-        });
+        };
+        
+        await supabase.rpc('update_ranking_method', rpcParams);
       } catch (rpcError) {
         console.warn("Could not update ranking_method using RPC, falling back to direct update", rpcError);
         
