@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { useEvent } from '@/context/EventContext';
 import { calculateStudentScores } from '@/utils/scoreCalculations';
+import { calculateGeneralRanking } from '@/utils/generalRankingMethod';
 import { generatePDF } from '@/utils/pdfGenerator';
 import {
   Table,
@@ -55,8 +56,10 @@ const Results = () => {
       return;
     }
 
-    // Calculate results with judge ranks
-    let calculatedResults = calculateStudentScores(currentEvent.students, currentEvent.scores);
+    // Calculate results with judge ranks based on the configured ranking method
+    let calculatedResults = currentEvent.rankingMethod === "general"
+      ? calculateGeneralRanking(currentEvent.students, currentEvent.scores)
+      : calculateStudentScores(currentEvent.students, currentEvent.scores);
     
     // Add judge names to the results
     calculatedResults = calculatedResults.map(result => {
@@ -77,6 +80,11 @@ const Results = () => {
 
   if (!currentEvent) return null;
 
+  // Display which ranking method is being used
+  const rankingMethodName = currentEvent.rankingMethod === "general" 
+    ? "General Ranking Method" 
+    : "Spearman's Ranking Method";
+
   return (
     <Layout title="Results">
       <div className="space-y-6">
@@ -88,6 +96,7 @@ const Results = () => {
           </div>
           <div className="text-right">
             <p className="text-sm text-gray-500">Maximum marks: {currentEvent.maxMarks || 100}</p>
+            <p className="text-sm text-gray-500">Ranking method: {rankingMethodName}</p>
           </div>
         </div>
         

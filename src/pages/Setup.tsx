@@ -17,6 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  RadioGroup,
+  RadioGroupItem
+} from "@/components/ui/radio-group";
 
 const DEFAULT_SCHOOLS = ["St. Xavier's Collegiate School Kolkata"];
 
@@ -30,7 +34,8 @@ const Setup = () => {
     setSchool,
     setMaxMarks,
     setStudents, 
-    setJudges 
+    setJudges,
+    setRankingMethod
   } = useEvent();
   
   const [localEventName, setLocalEventName] = useState("");
@@ -44,6 +49,7 @@ const Setup = () => {
   const [localJudges, setLocalJudges] = useState<Judge[]>([
     { id: uuidv4(), name: '' }
   ]);
+  const [localRankingMethod, setLocalRankingMethod] = useState<"spearman" | "general">("spearman");
 
   // Load current event data when available
   useEffect(() => {
@@ -61,6 +67,7 @@ const Setup = () => {
         ? currentEvent.judges 
         : [{ id: uuidv4(), name: '' }]
       );
+      setLocalRankingMethod(currentEvent.rankingMethod || "spearman");
     }
   }, [currentEvent]);
 
@@ -187,9 +194,10 @@ const Setup = () => {
         await setMaxMarks(currentEvent.id, maxMarks);
         await setStudents(currentEvent.id, localStudents);
         await setJudges(currentEvent.id, localJudges);
+        await setRankingMethod(currentEvent.id, localRankingMethod);
       } else {
         // Create new event if none exists
-        const id = await createEvent(localEventName, finalSchool, maxMarks);
+        const id = await createEvent(localEventName, finalSchool, maxMarks, localRankingMethod);
         await setStudents(id, localStudents);
         await setJudges(id, localJudges);
       }
@@ -274,6 +282,35 @@ const Setup = () => {
                   onChange={(e) => setLocalMaxMarks(e.target.value)}
                   min="1"
                 />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Ranking Method</Label>
+                <RadioGroup 
+                  value={localRankingMethod} 
+                  onValueChange={(value) => setLocalRankingMethod(value as "spearman" | "general")}
+                  className="flex flex-col space-y-2 mt-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="spearman" id="spearman" />
+                    <Label htmlFor="spearman" className="cursor-pointer">
+                      <span className="font-medium">Spearman's Ranking Method</span>
+                      <p className="text-sm text-muted-foreground">
+                        Ties are given the same rank, but subsequent ranks are skipped
+                      </p>
+                    </Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="general" id="general" />
+                    <Label htmlFor="general" className="cursor-pointer">
+                      <span className="font-medium">General Ranking Method</span>
+                      <p className="text-sm text-muted-foreground">
+                        Ties are given the same rank, subsequent ranks are not skipped
+                      </p>
+                    </Label>
+                  </div>
+                </RadioGroup>
               </div>
             </div>
           </CardContent>

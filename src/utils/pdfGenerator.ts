@@ -1,12 +1,15 @@
-
 import { jsPDF } from "jspdf";
 import autoTable from 'jspdf-autotable';
 import { Event } from "@/types";
 import { calculateStudentScores } from "./scoreCalculations";
+import { calculateGeneralRanking } from "./generalRankingMethod";
 
 export const generatePDF = async (event: Event): Promise<void> => {
   const doc = new jsPDF();
-  const results = calculateStudentScores(event.students, event.scores);
+  // Use the appropriate ranking method based on event configuration
+  const results = event.rankingMethod === "general" 
+    ? calculateGeneralRanking(event.students, event.scores)
+    : calculateStudentScores(event.students, event.scores);
   
   // Add judge names to results
   const resultsWithJudgeNames = results.map(result => {
@@ -34,8 +37,12 @@ export const generatePDF = async (event: Event): Promise<void> => {
   doc.setFontSize(12);
   doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 38);
 
-  // Add participant and judge count with judge names
-  doc.text(`Participants: ${event.students.length} | Judges: ${event.judges.length} | Max Marks: ${event.maxMarks || 100}`, 14, 46);
+  // Add participant and judge count with ranking method
+  doc.text(
+    `Participants: ${event.students.length} | Judges: ${event.judges.length} | Max Marks: ${event.maxMarks || 100} | Ranking: ${event.rankingMethod === "general" ? "General" : "Spearman's"}`, 
+    14, 
+    46
+  );
   
   // List judge names
   doc.setFontSize(10);

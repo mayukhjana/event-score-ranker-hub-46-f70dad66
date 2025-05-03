@@ -1,4 +1,3 @@
-
 export interface Student {
   id: string;
   name: string;
@@ -24,6 +23,7 @@ export interface Event {
   judges: Judge[];
   scores: Score[];
   createdAt: string;
+  rankingMethod?: "spearman" | "general"; // Add ranking method field
 }
 
 export interface EventsState {
@@ -39,6 +39,7 @@ export interface SupabaseEvent {
   created_at: string;
   updated_at: string;
   user_id: string;
+  ranking_method?: string;
 }
 
 export interface SupabaseStudent {
