@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -7,14 +7,19 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useEvent } from '@/context/EventContext';
 import { formatDistanceToNow } from 'date-fns';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { FileText, Plus, Trash2, Edit, File } from 'lucide-react';
+import { FileText, Plus, Trash2, Edit, File, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { generatePDF } from '@/utils/pdfGenerator';
+import { Input } from '@/components/ui/input';
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 
 const Index = () => {
   const { events, createEvent, deleteEvent, setCurrentEventId } = useEvent();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const eventsPerPage = 5;
   
   const handleCreateEvent = async () => {
     try {
@@ -63,20 +68,84 @@ const Index = () => {
       await generatePDF(event);
       toast({
         title: "PDF Generated",
-        description: "Results PDF has been generated and downloaded",
+        description: "Scoring sheets have been generated and downloaded",
       });
     } catch (error) {
       toast({
         title: "PDF Generation Failed",
-        description: "There was an error generating the PDF",
+        description: "There was an error generating the scoring sheets",
         variant: "destructive"
       });
       console.error("PDF generation error:", error);
     }
   };
 
-  const sortedEvents = [...events].sort((a, b) => 
+  // Filter events based on search query
+  const filteredEvents = searchQuery 
+    ? events.filter(event => 
+        event.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        (event.school && event.school.toLowerCase().includes(searchQuery.toLowerCase()))
+      )
+    : events;
+
+  // Sort events by creation date (newest first)
+  const sortedEvents = [...filteredEvents].sort((a, b) => 
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+  // Pagination logic
+  const totalPages = Math.ceil(sortedEvents.length / eventsPerPage);
+  const indexOfLastEvent = currentPage * eventsPerPage;
+  const indexOfFirstEvent = indexOfLastEvent - eventsPerPage;
+  const currentEvents = sortedEvents.slice(indexOfFirstEvent, indexOfLastEvent);
+
+  const paginate = (pageNumber: number) => {
+    if (pageNumber > 0 && pageNumber <= totalPages) {
+      setCurrentPage(pageNumber);
+    }
+  };
+
+  // Create page numbers array for pagination
+  const pageNumbers = [];
+  for (let i = 1; i <= totalPages; i++) {
+    pageNumbers.push(i);
+  }
+  
+  // Display page numbers with ellipsis for many pages
+  const renderPaginationItems = () => {
+    // Always show first page, last page, current page, and pages adjacent to current page
+    const pagesToShow = new Set([1, totalPages, currentPage, currentPage - 1, currentPage + 1]);
+    
+    // Filter out invalid pages and sort
+    const validPages = [...pagesToShow]
+      .filter(page => page > 0 && page <= totalPages)
+      .sort((a, b) => a - b);
+    
+    return validPages.map((page, index, array) => {
+      // Add ellipsis when there's a gap between pages
+      if (index > 0 && page - array[index - 1] > 1) {
+        return (
+          <React.Fragment key={`ellipsis-${page}`}>
+            <PaginationItem>
+              <PaginationEllipsis />
+            </PaginationItem>
+            <PaginationItem key={page}>
+              <PaginationLink isActive={page === currentPage} onClick={() => paginate(page)}>
+                {page}
+              </PaginationLink>
+            </PaginationItem>
+          </React.Fragment>
+        );
+      }
+      
+      return (
+        <PaginationItem key={page}>
+          <PaginationLink isActive={page === currentPage} onClick={() => paginate(page)}>
+            {page}
+          </PaginationLink>
+        </PaginationItem>
+      );
+    });
+  };
   
   return (
     <Layout title="Event Score Manager">
@@ -88,6 +157,29 @@ const Index = () => {
           </Button>
         </div>
 
+        {/* Search bar */}
+        <div className="relative w-full max-w-md">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-4 w-4 text-gray-400" />
+          </div>
+          <Input
+            type="text"
+            placeholder="Search events..."
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1); // Reset to first page when searching
+            }}
+          />
+        </div>
+
+        {/* Event information and counts */}
+        <div className="text-sm text-muted-foreground">
+          Showing {Math.min(sortedEvents.length, indexOfFirstEvent + 1)}-{Math.min(indexOfLastEvent, sortedEvents.length)} of {sortedEvents.length} event(s)
+        </div>
+
+        {/* Events list */}
         {sortedEvents.length === 0 ? (
           <Card className="border-dashed border-2 p-8">
             <CardContent className="flex flex-col items-center justify-center text-center py-8">
@@ -113,7 +205,7 @@ const Index = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedEvents.map((event) => (
+              {currentEvents.map((event) => (
                 <TableRow 
                   key={event.id} 
                   className="cursor-pointer hover:bg-gray-100"
@@ -140,9 +232,10 @@ const Index = () => {
                       variant="ghost" 
                       size="icon"
                       onClick={(e) => handleGeneratePDF(event.id, e)}
-                      title="Generate PDF Report"
+                      title="Generate Scoring Sheets"
                     >
                       <File className="h-4 w-4" />
+                      <span className="sr-only">Generate Scoring Sheets</span>
                     </Button>
                     <Button 
                       variant="ghost" 
@@ -157,6 +250,23 @@ const Index = () => {
               ))}
             </TableBody>
           </Table>
+        )}
+        
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <Pagination className="mt-4">
+            <PaginationContent>
+              <PaginationPrevious
+                onClick={() => paginate(currentPage - 1)}
+                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+              {renderPaginationItems()}
+              <PaginationNext
+                onClick={() => paginate(currentPage + 1)}
+                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+              />
+            </PaginationContent>
+          </Pagination>
         )}
         
         <div className="mt-8">
