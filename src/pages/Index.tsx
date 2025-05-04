@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -7,9 +6,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useEvent } from '@/context/EventContext';
 import { formatDistanceToNow } from 'date-fns';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { FileText, Plus, Trash2, Edit, File, Search } from 'lucide-react';
+import { FileText, Plus, Trash2, Edit, File, Search, FileTextSearch } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { generatePDF } from '@/utils/pdfGenerator';
+import { generatePDF, generateJudgeScoringSheets } from '@/utils/pdfGenerator';
 import { Input } from '@/components/ui/input';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 
@@ -77,6 +76,28 @@ const Index = () => {
         variant: "destructive"
       });
       console.error("PDF generation error:", error);
+    }
+  };
+
+  const handleGenerateScoringSheets = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const event = events.find(event => event.id === id);
+    if (!event) return;
+    
+    try {
+      generateJudgeScoringSheets(event);
+      toast({
+        title: "Scoring Sheets Generated",
+        description: "Judge scoring sheets have been generated and downloaded",
+      });
+    } catch (error) {
+      toast({
+        title: "Scoring Sheet Generation Failed",
+        description: "There was an error generating the scoring sheets",
+        variant: "destructive"
+      });
+      console.error("Scoring sheets generation error:", error);
     }
   };
 
@@ -232,10 +253,17 @@ const Index = () => {
                       variant="ghost" 
                       size="icon"
                       onClick={(e) => handleGeneratePDF(event.id, e)}
-                      title="Generate Scoring Sheets"
+                      title="Generate Results PDF"
                     >
                       <File className="h-4 w-4" />
-                      <span className="sr-only">Generate Scoring Sheets</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => handleGenerateScoringSheets(event.id, e)}
+                      title="Generate Scoring Sheets"
+                    >
+                      <FileTextSearch className="h-4 w-4" />
                     </Button>
                     <Button 
                       variant="ghost" 
