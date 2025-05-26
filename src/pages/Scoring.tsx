@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -44,26 +43,22 @@ const Scoring = () => {
     const scoreEntry = scores.find(
       (s) => s.studentId === studentId && s.judgeId === judgeId
     );
-    return scoreEntry ? scoreEntry.value.toString() : "nil";
+    // Show 0 by default instead of "nil"
+    return scoreEntry ? scoreEntry.value.toString() : "0";
   };
 
-  const handleScoreChange = (studentId: string, judgeId: string, valueStr: string) => {
-    if (valueStr === "nil" || valueStr === "") {
-      // Remove the score if it's nil or empty
-      setScore(currentEvent.id, studentId, judgeId, 0);
-      return;
+  const handleScoreChange = (
+    studentId: string,
+    judgeId: string,
+    valueStr: string
+  ) => {
+    let updated = valueStr;
+    // If cleared or invalid, default to "0"
+    if (!updated || isNaN(Number(updated))) {
+      updated = "0";
     }
-
-    const value = parseFloat(valueStr);
-    if (!isNaN(value)) {
-      setScore(currentEvent.id, studentId, judgeId, value);
-    } else {
-      toast({
-        title: "Invalid score",
-        description: "Please enter a valid number or 'nil'",
-        variant: "destructive"
-      });
-    }
+    const value = parseFloat(updated);
+    setScore(currentEvent.id, studentId, judgeId, value);
   };
 
   // Calculate completion percentage
@@ -72,6 +67,11 @@ const Scoring = () => {
   const completionPercentage = totalScoresNeeded > 0 
     ? Math.round((scoresFilled / totalScoresNeeded) * 100) 
     : 0;
+
+  // On focus, select all value in input for easier editing
+  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    e.target.select();
+  };
 
   return (
     <Layout title="Scoring">
@@ -96,7 +96,7 @@ const Scoring = () => {
             <div
               className="bg-blue-600 h-2.5 rounded-full"
               style={{ width: `${completionPercentage}%` }}
-            ></div>
+            />
           </div>
         </div>
 
@@ -128,10 +128,15 @@ const Scoring = () => {
                       {judges.map(judge => (
                         <TableCell key={judge.id} className="p-1 text-center">
                           <Input
-                            type="text"
+                            type="number"
+                            min={0}
+                            max={maxMarks}
                             value={getScore(student.id, judge.id)}
-                            onChange={(e) => handleScoreChange(student.id, judge.id, e.target.value)}
+                            onChange={(e) =>
+                              handleScoreChange(student.id, judge.id, e.target.value)
+                            }
                             className="h-8 w-16 text-center mx-auto"
+                            onFocus={handleInputFocus}
                           />
                         </TableCell>
                       ))}
