@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -6,11 +7,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useEvent } from '@/context/EventContext';
 import { formatDistanceToNow } from 'date-fns';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { FileText, Plus, Trash2, Edit, File, Search, FileSearch } from 'lucide-react';
+import { FileText, Plus, Trash2, Edit, File, Search, FileSearch, ChevronDown, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { generatePDF, generateJudgeScoringSheets } from '@/utils/pdfGenerator';
 import { Input } from '@/components/ui/input';
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const Index = () => {
   const { events, createEvent, deleteEvent, setCurrentEventId } = useEvent();
@@ -101,23 +103,42 @@ const Index = () => {
     }
   };
 
-  // Filter events based on search query
-  const filteredEvents = searchQuery 
-    ? events.filter(event => 
-        event.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        (event.school && event.school.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    : events;
+  // Group events by festival/school
+  const groupedEvents = useMemo(() => {
+    const filtered = searchQuery 
+      ? events.filter(event => 
+          event.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+          (event.school && event.school.toLowerCase().includes(searchQuery.toLowerCase()))
+        )
+      : events;
 
-  // Sort events by creation date (newest first)
-  const sortedEvents = [...filteredEvents].sort((a, b) => 
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    
-  // Pagination logic
-  const totalPages = Math.ceil(sortedEvents.length / eventsPerPage);
+    const sorted = [...filtered].sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    // Group by school/festival name
+    const grouped = sorted.reduce((acc, event) => {
+      const festivalName = event.school || 'Unnamed Festival';
+      if (!acc[festivalName]) {
+        acc[festivalName] = [];
+      }
+      acc[festivalName].push(event);
+      return acc;
+    }, {} as Record<string, typeof events>);
+
+    return grouped;
+  }, [events, searchQuery]);
+
+  const totalEvents = Object.values(groupedEvents).flat().length;
+  const totalPages = Math.ceil(totalEvents / eventsPerPage);
+
+  // Get events for current page across all festivals
+  const getAllEventsFlat = () => {
+    return Object.values(groupedEvents).flat();
+  };
+
   const indexOfLastEvent = currentPage * eventsPerPage;
   const indexOfFirstEvent = indexOfLastEvent - eventsPerPage;
-  const currentEvents = sortedEvents.slice(indexOfFirstEvent, indexOfLastEvent);
+  const currentEvents = getAllEventsFlat().slice(indexOfFirstEvent, indexOfLastEvent);
 
   const paginate = (pageNumber: number) => {
     if (pageNumber > 0 && pageNumber <= totalPages) {
@@ -125,24 +146,14 @@ const Index = () => {
     }
   };
 
-  // Create page numbers array for pagination
-  const pageNumbers = [];
-  for (let i = 1; i <= totalPages; i++) {
-    pageNumbers.push(i);
-  }
-  
-  // Display page numbers with ellipsis for many pages
   const renderPaginationItems = () => {
-    // Always show first page, last page, current page, and pages adjacent to current page
     const pagesToShow = new Set([1, totalPages, currentPage, currentPage - 1, currentPage + 1]);
     
-    // Filter out invalid pages and sort
     const validPages = [...pagesToShow]
       .filter(page => page > 0 && page <= totalPages)
       .sort((a, b) => a - b);
     
     return validPages.map((page, index, array) => {
-      // Add ellipsis when there's a gap between pages
       if (index > 0 && page - array[index - 1] > 1) {
         return (
           <React.Fragment key={`ellipsis-${page}`}>
@@ -172,7 +183,7 @@ const Index = () => {
     <Layout title="Event Score Manager">
       <div className="flex flex-col space-y-6">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold">Your Events</h2>
+          <h2 className="text-2xl font-bold">Your Festivals & Events</h2>
           <Button onClick={handleCreateEvent}>
             <Plus className="mr-2 h-4 w-4" /> Create New Event
           </Button>
@@ -185,23 +196,23 @@ const Index = () => {
           </div>
           <Input
             type="text"
-            placeholder="Search events..."
+            placeholder="Search festivals or events..."
             className="pl-10"
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
-              setCurrentPage(1); // Reset to first page when searching
+              setCurrentPage(1);
             }}
           />
         </div>
 
         {/* Event information and counts */}
         <div className="text-sm text-muted-foreground">
-          Showing {Math.min(sortedEvents.length, indexOfFirstEvent + 1)}-{Math.min(indexOfLastEvent, sortedEvents.length)} of {sortedEvents.length} event(s)
+          Found {Object.keys(groupedEvents).length} festival(s) with {totalEvents} event(s) total
         </div>
 
-        {/* Events list */}
-        {sortedEvents.length === 0 ? (
+        {/* Festivals and Events list */}
+        {totalEvents === 0 ? (
           <Card className="border-dashed border-2 p-8">
             <CardContent className="flex flex-col items-center justify-center text-center py-8">
               <FileText className="h-12 w-12 text-gray-400 mb-4" />
@@ -215,86 +226,89 @@ const Index = () => {
             </CardContent>
           </Card>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Event Name</TableHead>
-                <TableHead>Participants</TableHead>
-                <TableHead>Judges</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {currentEvents.map((event) => (
-                <TableRow 
-                  key={event.id} 
-                  className="cursor-pointer hover:bg-gray-100"
-                  onClick={() => handleSelectEvent(event.id)}
-                >
-                  <TableCell className="font-medium">{event.name}</TableCell>
-                  <TableCell>{event.students.length}</TableCell>
-                  <TableCell>{event.judges.length}</TableCell>
-                  <TableCell>
-                    {event.createdAt 
-                      ? formatDistanceToNow(new Date(event.createdAt), { addSuffix: true }) 
-                      : 'Unknown'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={(e) => handleEditEvent(event.id, e)}
-                      title="Edit Event"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={(e) => handleGeneratePDF(event.id, e)}
-                      title="Generate Results PDF"
-                    >
-                      <File className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => handleGenerateScoringSheets(event.id, e)}
-                      title="Generate Scoring Sheets"
-                    >
-                      <FileSearch className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={(e) => handleDeleteEvent(event.id, e)}
-                      title="Delete Event"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
+          <div className="space-y-4">
+            <Accordion type="multiple" className="w-full">
+              {Object.entries(groupedEvents).map(([festivalName, festivalEvents]) => (
+                <AccordionItem key={festivalName} value={festivalName} className="border rounded-lg">
+                  <AccordionTrigger className="px-4 py-3 hover:bg-gray-50">
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center space-x-3">
+                        <h3 className="text-lg font-semibold text-left">{festivalName}</h3>
+                        <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                          {festivalEvents.length} event{festivalEvents.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Event Name</TableHead>
+                          <TableHead>Participants</TableHead>
+                          <TableHead>Judges</TableHead>
+                          <TableHead>Created</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {festivalEvents.map((event) => (
+                          <TableRow 
+                            key={event.id} 
+                            className="cursor-pointer hover:bg-gray-100"
+                            onClick={() => handleSelectEvent(event.id)}
+                          >
+                            <TableCell className="font-medium">{event.name}</TableCell>
+                            <TableCell>{event.students.length}</TableCell>
+                            <TableCell>{event.judges.length}</TableCell>
+                            <TableCell>
+                              {event.createdAt 
+                                ? formatDistanceToNow(new Date(event.createdAt), { addSuffix: true }) 
+                                : 'Unknown'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={(e) => handleEditEvent(event.id, e)}
+                                title="Edit Event"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={(e) => handleGeneratePDF(event.id, e)}
+                                title="Generate Results PDF"
+                              >
+                                <File className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => handleGenerateScoringSheets(event.id, e)}
+                                title="Generate Scoring Sheets"
+                              >
+                                <FileSearch className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={(e) => handleDeleteEvent(event.id, e)}
+                                title="Delete Event"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </AccordionContent>
+                </AccordionItem>
               ))}
-            </TableBody>
-          </Table>
-        )}
-        
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <Pagination className="mt-4">
-            <PaginationContent>
-              <PaginationPrevious
-                onClick={() => paginate(currentPage - 1)}
-                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-              {renderPaginationItems()}
-              <PaginationNext
-                onClick={() => paginate(currentPage + 1)}
-                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
-              />
-            </PaginationContent>
-          </Pagination>
+            </Accordion>
+          </div>
         )}
         
         <div className="mt-8">
